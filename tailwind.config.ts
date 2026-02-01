@@ -31,6 +31,10 @@ export default {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -46,6 +50,12 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        badge: {
+          nom: "hsl(var(--badge-nom))",
+          adjectif: "hsl(var(--badge-adjectif))",
+          verbe: "hsl(var(--badge-verbe))",
+          adverbe: "hsl(var(--badge-adverbe))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
