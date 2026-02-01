@@ -8,6 +8,7 @@ import { useProgress } from '@/hooks/useProgress';
 import { Word } from '@/types/word';
 import { Sparkles, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { NotificationPrompt } from '@/components/NotificationPrompt';
 
 export default function DailyWord() {
   const navigate = useNavigate();
@@ -44,6 +45,9 @@ export default function DailyWord() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-6 py-8">
+        {/* Notification Prompt */}
+        <NotificationPrompt />
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
