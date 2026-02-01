@@ -7,6 +7,7 @@ import DailyWord from "./pages/DailyWord";
 import Quiz from "./pages/Quiz";
 import WeeklyReview from "./pages/WeeklyReview";
 import ProgressPage from "./pages/ProgressPage";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { useServiceWorker } from "./hooks/useServiceWorker";
 
@@ -26,6 +27,7 @@ const App = () => {
             <Route path="/quiz" element={<Quiz />} />
             <Route path="/revision" element={<WeeklyReview />} />
             <Route path="/progress" element={<ProgressPage />} />
+            <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

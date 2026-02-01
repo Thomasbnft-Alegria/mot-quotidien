@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Brain, Calendar, BarChart3, Lock } from 'lucide-react';
+import { Home, Brain, Calendar, BarChart3, Lock, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProgress } from '@/hooks/useProgress';
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/quiz', icon: Brain, label: 'Quiz' },
   { to: '/revision', icon: Calendar, label: 'Révision', requiresSunday: true },
   { to: '/progress', icon: BarChart3, label: 'Progrès' },
+  { to: '/settings', icon: Settings, label: 'Réglages' },
 ];
 
 export function BottomNav() {
