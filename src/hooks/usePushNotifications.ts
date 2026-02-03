@@ -6,7 +6,7 @@ const SUBSCRIPTION_ENDPOINT_KEY = 'push_subscription_endpoint';
 
 // VAPID public key - must match the one in Supabase secrets
 // This is the public key, safe to expose in client code
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+const VAPID_PUBLIC_KEY = 'BKKBrfXapypw_ZoLMwN-5e7FjdjSAecpDCUzRznb_60UOaM4o_rDq9fFUEGZD4hBsxfQfvyIjbiZCFsoHu_yMSY';
 
 type PermissionStatus = 'default' | 'granted' | 'denied' | 'unsupported';
 
