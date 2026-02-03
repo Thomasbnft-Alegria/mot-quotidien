@@ -95,21 +95,29 @@ self.addEventListener('push', (event) => {
 
 // Notification click event
 self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.notification);
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  
+  // Always navigate to home page
+  const targetUrl = '/';
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
-        // If a window is already open, focus it
+        console.log('[SW] Found clients:', clientList.length);
+        // If a window is already open, focus it and navigate
         for (const client of clientList) {
-          if (client.url.includes(self.location.origin) && 'focus' in client) {
-            return client.focus();
+          if ('focus' in client) {
+            console.log('[SW] Focusing existing client and navigating to:', targetUrl);
+            client.focus();
+            client.navigate(targetUrl);
+            return;
           }
         }
         // Otherwise open a new window
+        console.log('[SW] Opening new window:', targetUrl);
         if (clients.openWindow) {
-          return clients.openWindow(url);
+          return clients.openWindow(targetUrl);
         }
       })
   );
