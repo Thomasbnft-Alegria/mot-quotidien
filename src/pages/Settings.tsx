@@ -175,7 +175,7 @@ export default function Settings() {
                     className="w-full gap-2"
                   >
                     <Send className="w-4 h-4" />
-                    Envoyer une notification de test
+                    Tester les notifications
                   </Button>
                 </div>
               )}
