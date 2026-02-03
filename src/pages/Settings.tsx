@@ -13,27 +13,25 @@ export default function Settings() {
     isSubscribed,
     isLoading,
     requestPermission,
-    toggleNotifications
+    toggleNotifications,
+    sendTestNotification
   } = usePushNotifications();
 
-  const sendTestNotification = async () => {
-    if (!('serviceWorker' in navigator)) {
-      toast.error('Service Worker non disponible');
-      return;
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.showNotification('Mot du Jour', {
-        body: 'Votre mot du jour est arrivé ! 📚',
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
-        data: { url: '/' }
-      } as NotificationOptions);
+  const handleTestNotification = async () => {
+    const success = await sendTestNotification();
+    if (success) {
       toast.success('Notification de test envoyée !');
-    } catch (error) {
-      console.error('Error sending test notification:', error);
+    } else {
       toast.error('Erreur lors de l\'envoi de la notification');
+    }
+  };
+
+  const handleToggle = async (checked: boolean) => {
+    await toggleNotifications(checked);
+    if (checked) {
+      toast.success('Notifications activées !');
+    } else {
+      toast.info('Notifications désactivées');
     }
   };
 
@@ -135,28 +133,40 @@ export default function Settings() {
               )}
 
               {permissionStatus === 'granted' && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {isSubscribed ? (
-                      <Bell className="w-5 h-5 text-primary" />
-                    ) : (
-                      <BellOff className="w-5 h-5 text-muted-foreground" />
-                    )}
-                    <div>
-                      <p className="font-medium text-foreground">
-                        Notifications quotidiennes
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Rappel à 12h30 chaque jour
-                      </p>
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {isSubscribed ? (
+                        <Bell className="w-5 h-5 text-primary" />
+                      ) : (
+                        <BellOff className="w-5 h-5 text-muted-foreground" />
+                      )}
+                      <div>
+                        <p className="font-medium text-foreground">
+                          Notifications quotidiennes
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Rappel à 12h30 chaque jour
+                        </p>
+                      </div>
                     </div>
+                    <Switch
+                      checked={isSubscribed}
+                      onCheckedChange={handleToggle}
+                      disabled={isLoading}
+                    />
                   </div>
-                  <Switch
-                    checked={isSubscribed}
-                    onCheckedChange={toggleNotifications}
+
+                  <Button
+                    variant="outline"
+                    onClick={handleTestNotification}
                     disabled={isLoading}
-                  />
-                </div>
+                    className="w-full gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    Tester maintenant
+                  </Button>
+                </>
               )}
 
               {permissionStatus === 'denied' && (
@@ -167,18 +177,6 @@ export default function Settings() {
                 </div>
               )}
 
-              {permissionStatus === 'granted' && isSubscribed && (
-                <div className="pt-4 border-t border-border">
-                  <Button
-                    variant="outline"
-                    onClick={sendTestNotification}
-                    className="w-full gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    Tester les notifications
-                  </Button>
-                </div>
-              )}
               {permissionStatus === 'unsupported' && (
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">
