@@ -29,9 +29,31 @@ export function usePushNotifications() {
     // Check if already subscribed
     const storedEndpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
     if (storedEndpoint && Notification.permission === 'granted') {
-      setIsSubscribed(true);
+      // Verify subscription still exists in DB
+      checkSubscriptionStatus(storedEndpoint);
     }
   }, []);
+
+  const checkSubscriptionStatus = async (endpoint: string) => {
+    try {
+      const { data } = await supabase
+        .from('push_subscriptions')
+        .select('enabled')
+        .eq('endpoint', endpoint)
+        .single();
+      
+      if (data) {
+        setIsSubscribed(data.enabled);
+      } else {
+        // Subscription not found, clear local storage
+        localStorage.removeItem(SUBSCRIPTION_ENDPOINT_KEY);
+        setIsSubscribed(false);
+      }
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      setIsSubscribed(false);
+    }
+  };
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!('Notification' in window)) {
@@ -135,21 +157,57 @@ export function usePushNotifications() {
   };
 
   const toggleNotifications = useCallback(async (enabled: boolean) => {
-    const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
-    if (!endpoint) return;
-
     setIsLoading(true);
+    
     try {
-      await supabase
-        .from('push_subscriptions')
-        .update({ enabled })
-        .eq('endpoint', endpoint);
-      
-      setIsSubscribed(enabled);
+      if (enabled) {
+        // If enabling and no endpoint exists, subscribe first
+        const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
+        if (!endpoint) {
+          await subscribeToPush();
+        } else {
+          // Update existing subscription
+          await supabase
+            .from('push_subscriptions')
+            .update({ enabled: true })
+            .eq('endpoint', endpoint);
+          setIsSubscribed(true);
+        }
+      } else {
+        // Disable notifications
+        const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
+        if (endpoint) {
+          await supabase
+            .from('push_subscriptions')
+            .update({ enabled: false })
+            .eq('endpoint', endpoint);
+        }
+        setIsSubscribed(false);
+      }
     } catch (error) {
       console.error('Error toggling notifications:', error);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const sendTestNotification = useCallback(async (): Promise<boolean> => {
+    if (!('serviceWorker' in navigator)) {
+      return false;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification('Mot du Jour', {
+        body: 'Votre mot du jour est arrivé ! 📚',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url: '/' }
+      } as NotificationOptions);
+      return true;
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      return false;
     }
   }, []);
 
@@ -161,7 +219,8 @@ export function usePushNotifications() {
     isLoading,
     shouldShowPrompt,
     requestPermission,
-    toggleNotifications
+    toggleNotifications,
+    sendTestNotification
   };
 }
 
