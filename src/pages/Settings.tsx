@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
-import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { BottomNav } from '@/components/BottomNav';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { toast } from 'sonner';
 
 export default function Settings() {
   const {
@@ -14,6 +15,27 @@ export default function Settings() {
     requestPermission,
     toggleNotifications
   } = usePushNotifications();
+
+  const sendTestNotification = async () => {
+    if (!('serviceWorker' in navigator)) {
+      toast.error('Service Worker non disponible');
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification('Mot du Jour', {
+        body: 'Votre mot du jour est arrivé ! 📚',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url: '/' }
+      } as NotificationOptions);
+      toast.success('Notification de test envoyée !');
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      toast.error('Erreur lors de l\'envoi de la notification');
+    }
+  };
 
   const getStatusIcon = () => {
     if (permissionStatus === 'unsupported') {
@@ -145,6 +167,18 @@ export default function Settings() {
                 </div>
               )}
 
+              {permissionStatus === 'granted' && isSubscribed && (
+                <div className="pt-4 border-t border-border">
+                  <Button
+                    variant="outline"
+                    onClick={sendTestNotification}
+                    className="w-full gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    Envoyer une notification de test
+                  </Button>
+                </div>
+              )}
               {permissionStatus === 'unsupported' && (
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">
