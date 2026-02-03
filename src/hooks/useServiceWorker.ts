@@ -5,6 +5,10 @@ export function useServiceWorker() {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
+    // Avoid service worker caching during development/preview.
+    // In dev, SW runtime caching can serve stale JS chunks and lead to React hook dispatcher errors.
+    if (import.meta.env.DEV) return;
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js')
