@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 const NOTIFICATION_ASKED_KEY = 'notification_permission_asked';
 const SUBSCRIPTION_ENDPOINT_KEY = 'push_subscription_endpoint';
 
+// VAPID public key - must match the one in Supabase secrets
+// This is the public key, safe to expose in client code
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+
 type PermissionStatus = 'default' | 'granted' | 'denied' | 'unsupported';
 
 export function usePushNotifications() {
@@ -83,26 +87,26 @@ export function usePushNotifications() {
 
   const subscribeToPush = async () => {
     try {
+      console.log('[Push] Starting subscription process...');
       const registration = await navigator.serviceWorker.ready;
+      console.log('[Push] Service worker ready');
       
-      // For demo purposes without VAPID keys, we create a mock subscription
-      // In production, you would use real VAPID keys
+      // Check for existing subscription
       let subscription = await registration.pushManager.getSubscription();
+      console.log('[Push] Existing subscription:', subscription ? 'yes' : 'no');
       
-      if (!subscription) {
-        // Try to subscribe with a dummy applicationServerKey for demo
-        // Real implementation would use VAPID public key
+      if (!subscription && VAPID_PUBLIC_KEY) {
+        // Subscribe with real VAPID key
         try {
+          console.log('[Push] Subscribing with VAPID key...');
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            // This would normally be your VAPID public key
-            applicationServerKey: urlBase64ToUint8Array(
-              'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
-            )
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
           });
+          console.log('[Push] Subscription created:', subscription.endpoint.substring(0, 50) + '...');
         } catch (pushError) {
-          console.warn('Push subscription failed, storing local subscription:', pushError);
-          // Store a local-only subscription for demo purposes
+          console.error('[Push] Push subscription failed:', pushError);
+          // Fallback to local subscription for demo
           const mockSubscription = {
             endpoint: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             p256dh: 'demo-key',
@@ -111,6 +115,16 @@ export function usePushNotifications() {
           await saveSubscription(mockSubscription.endpoint, mockSubscription.p256dh, mockSubscription.auth);
           return;
         }
+      } else if (!subscription) {
+        // No VAPID key configured, use local subscription
+        console.log('[Push] No VAPID key, using local subscription');
+        const mockSubscription = {
+          endpoint: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          p256dh: 'demo-key',
+          auth: 'demo-auth'
+        };
+        await saveSubscription(mockSubscription.endpoint, mockSubscription.p256dh, mockSubscription.auth);
+        return;
       }
 
       if (subscription) {
@@ -120,10 +134,11 @@ export function usePushNotifications() {
         const p256dh = key ? btoa(String.fromCharCode(...new Uint8Array(key))) : '';
         const authKey = auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : '';
         
+        console.log('[Push] Saving subscription to database...');
         await saveSubscription(subscription.endpoint, p256dh, authKey);
       }
     } catch (error) {
-      console.error('Error subscribing to push:', error);
+      console.error('[Push] Error subscribing to push:', error);
     }
   };
 
@@ -142,17 +157,19 @@ export function usePushNotifications() {
           .from('push_subscriptions')
           .update({ p256dh, auth, enabled: true })
           .eq('endpoint', endpoint);
+        console.log('[Push] Updated existing subscription');
       } else {
         // Insert new subscription
         await supabase
           .from('push_subscriptions')
           .insert({ endpoint, p256dh, auth, enabled: true });
+        console.log('[Push] Inserted new subscription');
       }
 
       localStorage.setItem(SUBSCRIPTION_ENDPOINT_KEY, endpoint);
       setIsSubscribed(true);
     } catch (error) {
-      console.error('Error saving subscription:', error);
+      console.error('[Push] Error saving subscription:', error);
     }
   };
 
@@ -185,7 +202,7 @@ export function usePushNotifications() {
         setIsSubscribed(false);
       }
     } catch (error) {
-      console.error('Error toggling notifications:', error);
+      console.error('[Push] Error toggling notifications:', error);
     } finally {
       setIsLoading(false);
     }
@@ -194,12 +211,33 @@ export function usePushNotifications() {
   const sendTestNotification = useCallback(async (): Promise<boolean> => {
     console.log('[Notification] sendTestNotification called');
     
+    const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
+    console.log('[Notification] Stored endpoint:', endpoint ? endpoint.substring(0, 30) + '...' : 'none');
+
+    // Try to call the edge function to trigger server-side notification
+    try {
+      console.log('[Notification] Calling edge function...');
+      const { data, error } = await supabase.functions.invoke('send-daily-notification', {
+        body: { 
+          endpoint: endpoint,
+          test: true 
+        }
+      });
+
+      console.log('[Notification] Edge function response:', data, error);
+
+      if (error) {
+        console.error('[Notification] Edge function error:', error);
+      }
+    } catch (err) {
+      console.error('[Notification] Failed to call edge function:', err);
+    }
+
+    // Also show local notification as fallback/confirmation
     if (!('Notification' in window)) {
       console.error('[Notification] Notification API not supported');
       return false;
     }
-
-    console.log('[Notification] Permission status:', Notification.permission);
 
     if (Notification.permission !== 'granted') {
       console.error('[Notification] Permission not granted');
@@ -207,9 +245,9 @@ export function usePushNotifications() {
     }
 
     try {
-      console.log('[Notification] Creating notification...');
+      console.log('[Notification] Creating local notification...');
       const notification = new Notification('Votre mot du jour est arrivé', {
-        body: 'Ceci est un test',
+        body: 'Ceci est un test - Découvrez votre nouveau mot',
         icon: '/icon-192.png',
         tag: 'test-notification'
       });
@@ -220,7 +258,7 @@ export function usePushNotifications() {
         window.location.href = '/';
       };
 
-      console.log('[Notification] Notification created successfully:', notification);
+      console.log('[Notification] Local notification created successfully');
       return true;
     } catch (error) {
       console.error('[Notification] Error creating notification:', error);
@@ -244,7 +282,7 @@ export function usePushNotifications() {
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
+  const rawData = atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
