@@ -18,11 +18,13 @@ export default function Settings() {
   } = usePushNotifications();
 
   const handleTestNotification = async () => {
+    console.log('[Settings] handleTestNotification clicked');
     const success = await sendTestNotification();
+    console.log('[Settings] sendTestNotification result:', success);
     if (success) {
-      toast.success('Notification de test envoyée !');
+      toast.success('Notification envoyée !');
     } else {
-      toast.error('Erreur lors de l\'envoi de la notification');
+      toast.error('Erreur : vérifiez les permissions de notification');
     }
   };
 

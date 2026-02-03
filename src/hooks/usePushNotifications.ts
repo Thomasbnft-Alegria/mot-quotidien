@@ -192,21 +192,38 @@ export function usePushNotifications() {
   }, []);
 
   const sendTestNotification = useCallback(async (): Promise<boolean> => {
-    if (!('serviceWorker' in navigator)) {
+    console.log('[Notification] sendTestNotification called');
+    
+    if (!('Notification' in window)) {
+      console.error('[Notification] Notification API not supported');
+      return false;
+    }
+
+    console.log('[Notification] Permission status:', Notification.permission);
+
+    if (Notification.permission !== 'granted') {
+      console.error('[Notification] Permission not granted');
       return false;
     }
 
     try {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.showNotification('Mot du Jour', {
-        body: 'Votre mot du jour est arrivé ! 📚',
+      console.log('[Notification] Creating notification...');
+      const notification = new Notification('Votre mot du jour est arrivé', {
+        body: 'Ceci est un test',
         icon: '/icon-192.png',
-        badge: '/icon-192.png',
-        data: { url: '/' }
-      } as NotificationOptions);
+        tag: 'test-notification'
+      });
+
+      notification.onclick = () => {
+        console.log('[Notification] Notification clicked, navigating to /');
+        window.focus();
+        window.location.href = '/';
+      };
+
+      console.log('[Notification] Notification created successfully:', notification);
       return true;
     } catch (error) {
-      console.error('Error sending test notification:', error);
+      console.error('[Notification] Error creating notification:', error);
       return false;
     }
   }, []);
