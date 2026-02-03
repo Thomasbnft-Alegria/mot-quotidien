@@ -1,4 +1,5 @@
-const CACHE_NAME = 'mot-du-jour-v1';
+// NOTE: Bump this when changing caching strategy to force clients to drop old caches.
+const CACHE_NAME = 'mot-du-jour-v2';
 const urlsToCache = [
   '/',
   '/manifest.json',
@@ -30,6 +31,19 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Never cache dev/build tool assets or JS/CSS chunks.
+  // Caching these can serve stale React bundles and cause hook dispatcher errors.
+  const isSameOrigin = url.origin === self.location.origin;
+  const isViteAsset = url.pathname.startsWith('/@') || url.pathname.includes('/node_modules/.vite/');
+  const isSourceAsset = url.pathname.startsWith('/src/');
+  const isChunkLike = url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.map');
+
+  if (!isSameOrigin || isViteAsset || isSourceAsset || isChunkLike) {
+    return; // Let the request go to the network normally.
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -41,6 +55,13 @@ self.addEventListener('fetch', (event) => {
           if (!response || response.status !== 200 || event.request.method !== 'GET') {
             return response;
           }
+
+          // Only runtime-cache a small allowlist of safe, same-origin assets.
+          const shouldRuntimeCache = urlsToCache.includes(url.pathname) || event.request.destination === 'document';
+          if (!shouldRuntimeCache) {
+            return response;
+          }
+
           // Clone the response
           const responseToCache = response.clone();
           caches.open(CACHE_NAME)
