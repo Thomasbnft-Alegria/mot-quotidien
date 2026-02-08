@@ -40,33 +40,55 @@ export default function Quiz() {
   const answerChoices = useMemo(() => {
     if (!currentWord) return [];
 
-    // Get distractors from all available words (preferably same category)
-    const sameCategory = allAvailableWords.filter(
-      w => w.id !== currentWord.id && w.category === currentWord.category
-    );
-    const otherWords = allAvailableWords.filter(
-      w => w.id !== currentWord.id && w.category !== currentWord.category
-    );
+    const distractors: Word[] = [];
+    const usedIds = new Set<string>([currentWord.id]);
 
-    let distractors: Word[] = [];
+    // Priority 1: Same category AND same register
+    const sameCategoryAndRegister = allAvailableWords.filter(
+      w => w.id !== currentWord.id && 
+           w.category === currentWord.category && 
+           w.register === currentWord.register
+    );
+    const shuffledSameCategoryAndRegister = [...sameCategoryAndRegister].sort(() => Math.random() - 0.5);
     
-    // Try to get at least 2 from same category
-    const shuffledSameCategory = [...sameCategory].sort(() => Math.random() - 0.5);
-    const shuffledOther = [...otherWords].sort(() => Math.random() - 0.5);
-    
-    distractors = [...shuffledSameCategory.slice(0, 2), ...shuffledOther.slice(0, 1)];
-    
-    if (distractors.length < 3) {
-      const remaining = [...shuffledSameCategory, ...shuffledOther]
-        .filter(w => !distractors.includes(w))
-        .slice(0, 3 - distractors.length);
-      distractors = [...distractors, ...remaining];
+    for (const word of shuffledSameCategoryAndRegister) {
+      if (distractors.length >= 3) break;
+      if (!usedIds.has(word.id)) {
+        distractors.push(word);
+        usedIds.add(word.id);
+      }
     }
 
-    // Combine with correct answer and shuffle
+    // Priority 2: Same category only (if we need more)
+    if (distractors.length < 3) {
+      const sameCategoryOnly = allAvailableWords.filter(
+        w => !usedIds.has(w.id) && w.category === currentWord.category
+      );
+      const shuffledSameCategory = [...sameCategoryOnly].sort(() => Math.random() - 0.5);
+      
+      for (const word of shuffledSameCategory) {
+        if (distractors.length >= 3) break;
+        distractors.push(word);
+        usedIds.add(word.id);
+      }
+    }
+
+    // Priority 3: Any random words (if we still need more)
+    if (distractors.length < 3) {
+      const anyOther = allAvailableWords.filter(w => !usedIds.has(w.id));
+      const shuffledOther = [...anyOther].sort(() => Math.random() - 0.5);
+      
+      for (const word of shuffledOther) {
+        if (distractors.length >= 3) break;
+        distractors.push(word);
+        usedIds.add(word.id);
+      }
+    }
+
+    // Combine correct answer with distractors and shuffle
     const allChoices = [
       { id: currentWord.id, definition: currentWord.definition, isCorrect: true },
-      ...distractors.slice(0, 3).map(w => ({ id: w.id, definition: w.definition, isCorrect: false }))
+      ...distractors.map(w => ({ id: w.id, definition: w.definition, isCorrect: false }))
     ].sort(() => Math.random() - 0.5);
 
     return allChoices;
