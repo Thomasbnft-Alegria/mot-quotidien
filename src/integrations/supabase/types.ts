@@ -47,6 +47,42 @@ export type Database = {
         }
         Relationships: []
       }
+      words: {
+        Row: {
+          category: string
+          created_at: string
+          date_shown: string | null
+          definition: string
+          display_order: number
+          example_sentence: string
+          id: string
+          register: string
+          word: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          date_shown?: string | null
+          definition: string
+          display_order?: number
+          example_sentence: string
+          id?: string
+          register: string
+          word: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          date_shown?: string | null
+          definition?: string
+          display_order?: number
+          example_sentence?: string
+          id?: string
+          register?: string
+          word?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
