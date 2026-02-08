@@ -335,8 +335,8 @@ Deno.serve(async (req) => {
       : 'Découvrez votre nouveau mot';
 
     const payload: PushPayload = {
-      title: '🎯 Votre mot du jour est arrivé !',
-      body: wordMessage,
+      title: wordMessage,
+      body: '',
       icon: '/icon-192.png',
       url: '/',
     };
