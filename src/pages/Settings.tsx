@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { BottomNav } from '@/components/BottomNav';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { TimePicker } from '@/components/TimePicker';
 import { toast } from 'sonner';
 
 export default function Settings() {
@@ -12,9 +13,11 @@ export default function Settings() {
     permissionStatus,
     isSubscribed,
     isLoading,
+    preferredTime,
     requestPermission,
     toggleNotifications,
-    sendTestNotification
+    sendTestNotification,
+    updatePreferredTime
   } = usePushNotifications();
 
   const handleTestNotification = async () => {
@@ -34,6 +37,15 @@ export default function Settings() {
       toast.success('Notifications activées !');
     } else {
       toast.info('Notifications désactivées');
+    }
+  };
+
+  const handleTimeChange = async (time: string) => {
+    const success = await updatePreferredTime(time);
+    if (success) {
+      toast.success(`Heure de notification mise à jour : ${time}`);
+    } else {
+      toast.error('Erreur lors de la mise à jour');
     }
   };
 
@@ -147,9 +159,15 @@ export default function Settings() {
                         <p className="font-medium text-foreground">
                           Notifications quotidiennes
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          Rappel à 12h30 chaque jour
-                        </p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>Rappel à</span>
+                          <TimePicker 
+                            value={preferredTime} 
+                            onChange={handleTimeChange}
+                            disabled={isLoading || !isSubscribed}
+                          />
+                          <span>chaque jour</span>
+                        </div>
                       </div>
                     </div>
                     <Switch
@@ -202,7 +220,7 @@ export default function Settings() {
               <CardContent className="p-4">
                 <h4 className="font-medium text-foreground mb-2">📅 Calendrier des notifications</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Mot du jour : tous les jours à 12h30</li>
+                  <li>• Mot du jour : tous les jours à {preferredTime}</li>
                   <li>• Révision hebdomadaire : dimanche à 20h00</li>
                 </ul>
               </CardContent>

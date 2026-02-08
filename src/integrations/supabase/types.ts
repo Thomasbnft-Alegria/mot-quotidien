@@ -22,6 +22,7 @@ export type Database = {
           endpoint: string
           id: string
           p256dh: string
+          preferred_time: string
           updated_at: string
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           endpoint: string
           id?: string
           p256dh: string
+          preferred_time?: string
           updated_at?: string
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           endpoint?: string
           id?: string
           p256dh?: string
+          preferred_time?: string
           updated_at?: string
         }
         Relationships: []
