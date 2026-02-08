@@ -1,3 +1,4 @@
+// User progress tracking hook - manages local learning state
 import { useState, useEffect, useCallback } from 'react';
 import { WordProgress, UserProgress } from '@/types/word';
 import { words } from '@/data/words';

@@ -1,3 +1,4 @@
+// Daily word hook - fetches the consistent daily word from server
 import { useState, useEffect, useCallback } from 'react';
 import { Word } from '@/types/word';
 import { supabase } from '@/integrations/supabase/client';
