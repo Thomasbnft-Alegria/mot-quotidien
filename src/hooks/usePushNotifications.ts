@@ -3,9 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 const NOTIFICATION_ASKED_KEY = 'notification_permission_asked';
 const SUBSCRIPTION_ENDPOINT_KEY = 'push_subscription_endpoint';
+const PREFERRED_TIME_KEY = 'push_preferred_time';
 
 // VAPID public key - must match the one in Supabase secrets
-// This is the public key, safe to expose in client code
 const VAPID_PUBLIC_KEY = 'BKKBrfXapypw_ZoLMwN-5e7FjdjSAecpDCUzRznb_60UOaM4o_rDq9fFUEGZD4hBsxfQfvyIjbiZCFsoHu_yMSY';
 
 type PermissionStatus = 'default' | 'granted' | 'denied' | 'unsupported';
@@ -15,6 +15,7 @@ export function usePushNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [hasBeenAsked, setHasBeenAsked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [preferredTime, setPreferredTime] = useState('12:30');
 
   useEffect(() => {
     // Check if notifications are supported
@@ -30,10 +31,15 @@ export function usePushNotifications() {
     const asked = localStorage.getItem(NOTIFICATION_ASKED_KEY);
     setHasBeenAsked(asked === 'true');
 
+    // Load preferred time from localStorage
+    const storedTime = localStorage.getItem(PREFERRED_TIME_KEY);
+    if (storedTime) {
+      setPreferredTime(storedTime);
+    }
+
     // Check if already subscribed
     const storedEndpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
     if (storedEndpoint && Notification.permission === 'granted') {
-      // Verify subscription still exists in DB
       checkSubscriptionStatus(storedEndpoint);
     }
   }, []);
@@ -42,14 +48,19 @@ export function usePushNotifications() {
     try {
       const { data } = await supabase
         .from('push_subscriptions')
-        .select('enabled')
+        .select('enabled, preferred_time')
         .eq('endpoint', endpoint)
         .single();
       
       if (data) {
         setIsSubscribed(data.enabled);
+        if (data.preferred_time) {
+          // Convert "HH:MM:SS" to "HH:MM"
+          const time = data.preferred_time.substring(0, 5);
+          setPreferredTime(time);
+          localStorage.setItem(PREFERRED_TIME_KEY, time);
+        }
       } else {
-        // Subscription not found, clear local storage
         localStorage.removeItem(SUBSCRIPTION_ENDPOINT_KEY);
         setIsSubscribed(false);
       }
@@ -91,12 +102,10 @@ export function usePushNotifications() {
       const registration = await navigator.serviceWorker.ready;
       console.log('[Push] Service worker ready');
       
-      // Check for existing subscription
       let subscription = await registration.pushManager.getSubscription();
       console.log('[Push] Existing subscription:', subscription ? 'yes' : 'no');
       
       if (!subscription && VAPID_PUBLIC_KEY) {
-        // Subscribe with real VAPID key
         try {
           console.log('[Push] Subscribing with VAPID key...');
           subscription = await registration.pushManager.subscribe({
@@ -106,7 +115,6 @@ export function usePushNotifications() {
           console.log('[Push] Subscription created:', subscription.endpoint.substring(0, 50) + '...');
         } catch (pushError) {
           console.error('[Push] Push subscription failed:', pushError);
-          // Fallback to local subscription for demo
           const mockSubscription = {
             endpoint: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             p256dh: 'demo-key',
@@ -116,7 +124,6 @@ export function usePushNotifications() {
           return;
         }
       } else if (!subscription) {
-        // No VAPID key configured, use local subscription
         console.log('[Push] No VAPID key, using local subscription');
         const mockSubscription = {
           endpoint: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -144,25 +151,24 @@ export function usePushNotifications() {
 
   const saveSubscription = async (endpoint: string, p256dh: string, auth: string) => {
     try {
-      // Check if subscription already exists
       const { data: existing } = await supabase
         .from('push_subscriptions')
         .select('id')
         .eq('endpoint', endpoint)
         .single();
 
+      const timeForDb = `${preferredTime}:00`;
+
       if (existing) {
-        // Update existing subscription
         await supabase
           .from('push_subscriptions')
-          .update({ p256dh, auth, enabled: true })
+          .update({ p256dh, auth, enabled: true, preferred_time: timeForDb })
           .eq('endpoint', endpoint);
         console.log('[Push] Updated existing subscription');
       } else {
-        // Insert new subscription
         await supabase
           .from('push_subscriptions')
-          .insert({ endpoint, p256dh, auth, enabled: true });
+          .insert({ endpoint, p256dh, auth, enabled: true, preferred_time: timeForDb });
         console.log('[Push] Inserted new subscription');
       }
 
@@ -178,12 +184,10 @@ export function usePushNotifications() {
     
     try {
       if (enabled) {
-        // If enabling and no endpoint exists, subscribe first
         const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
         if (!endpoint) {
           await subscribeToPush();
         } else {
-          // Update existing subscription
           await supabase
             .from('push_subscriptions')
             .update({ enabled: true })
@@ -191,7 +195,6 @@ export function usePushNotifications() {
           setIsSubscribed(true);
         }
       } else {
-        // Disable notifications
         const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
         if (endpoint) {
           await supabase
@@ -208,20 +211,50 @@ export function usePushNotifications() {
     }
   }, []);
 
+  const updatePreferredTime = useCallback(async (time: string): Promise<boolean> => {
+    setIsLoading(true);
+    
+    try {
+      const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
+      if (!endpoint) {
+        console.error('[Push] No endpoint stored, cannot update preferred time');
+        return false;
+      }
+
+      const timeForDb = `${time}:00`;
+      
+      const { error } = await supabase
+        .from('push_subscriptions')
+        .update({ preferred_time: timeForDb })
+        .eq('endpoint', endpoint);
+
+      if (error) {
+        console.error('[Push] Error updating preferred time:', error);
+        return false;
+      }
+
+      setPreferredTime(time);
+      localStorage.setItem(PREFERRED_TIME_KEY, time);
+      console.log('[Push] Preferred time updated to:', time);
+      return true;
+    } catch (error) {
+      console.error('[Push] Error updating preferred time:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const sendTestNotification = useCallback(async (): Promise<boolean> => {
     console.log('[Notification] sendTestNotification called');
     
     const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
     console.log('[Notification] Stored endpoint:', endpoint ? endpoint.substring(0, 30) + '...' : 'none');
 
-    // Try to call the edge function to trigger server-side notification
     try {
       console.log('[Notification] Calling edge function...');
       const { data, error } = await supabase.functions.invoke('send-daily-notification', {
-        body: { 
-          endpoint: endpoint,
-          test: true 
-        }
+        body: { endpoint, test: true }
       });
 
       console.log('[Notification] Edge function response:', data, error);
@@ -233,32 +266,24 @@ export function usePushNotifications() {
       console.error('[Notification] Failed to call edge function:', err);
     }
 
-    // Also show local notification as fallback/confirmation
-    if (!('Notification' in window)) {
-      console.error('[Notification] Notification API not supported');
-      return false;
-    }
-
-    if (Notification.permission !== 'granted') {
-      console.error('[Notification] Permission not granted');
+    // Also show local notification as fallback
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
       return false;
     }
 
     try {
       console.log('[Notification] Creating local notification...');
-      const notification = new Notification('Votre mot du jour est arrivé', {
+      const notification = new Notification('🎯 Votre mot du jour est arrivé !', {
         body: 'Ceci est un test - Découvrez votre nouveau mot',
         icon: '/icon-192.png',
         tag: 'test-notification'
       });
 
       notification.onclick = () => {
-        console.log('[Notification] Notification clicked, navigating to /');
         window.focus();
         window.location.href = '/';
       };
 
-      console.log('[Notification] Local notification created successfully');
       return true;
     } catch (error) {
       console.error('[Notification] Error creating notification:', error);
@@ -272,10 +297,12 @@ export function usePushNotifications() {
     permissionStatus,
     isSubscribed,
     isLoading,
+    preferredTime,
     shouldShowPrompt,
     requestPermission,
     toggleNotifications,
-    sendTestNotification
+    sendTestNotification,
+    updatePreferredTime
   };
 }
 
