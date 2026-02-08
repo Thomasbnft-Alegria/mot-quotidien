@@ -137,6 +137,18 @@ function getParisTime(): { hours: number; minutes: number; timeString: string } 
   return { hours, minutes, timeString };
 }
 
+// Get current date in Paris timezone as YYYY-MM-DD
+function getParisDateString(): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(now);
+}
+
 // Check if preferred time matches current time (with 5-minute tolerance)
 function isTimeMatch(preferredTime: string, currentHours: number, currentMinutes: number): boolean {
   // preferred_time format: "HH:MM:SS" or "HH:MM"
@@ -148,6 +160,81 @@ function isTimeMatch(preferredTime: string, currentHours: number, currentMinutes
   // Check if within 5-minute window (0-4 minutes after preferred time)
   const diff = currentTotalMinutes - prefTotalMinutes;
   return diff >= 0 && diff < 5;
+}
+
+// Get today's word from the database
+async function getTodayWord(supabase: ReturnType<typeof createClient>): Promise<{ word: string; id: string } | null> {
+  const todayParis = getParisDateString();
+  console.log(`[Push] Getting daily word for Paris date: ${todayParis}`);
+
+  // Check if we already have a word for today
+  const { data: todayWord, error: fetchError } = await supabase
+    .from("words")
+    .select("id, word")
+    .eq("date_shown", todayParis)
+    .single();
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    console.error("[Push] Error fetching today's word:", fetchError);
+    return null;
+  }
+
+  if (todayWord) {
+    console.log(`[Push] Found existing word for today: ${todayWord.word}`);
+    return { word: todayWord.word, id: todayWord.id };
+  }
+
+  // No word for today - select next unshown word
+  console.log("[Push] No word for today, selecting next unshown word...");
+  
+  const { data: nextWord, error: nextError } = await supabase
+    .from("words")
+    .select("id, word")
+    .is("date_shown", null)
+    .order("display_order", { ascending: true })
+    .limit(1)
+    .single();
+
+  if (nextError && nextError.code !== "PGRST116") {
+    console.error("[Push] Error fetching next word:", nextError);
+    return null;
+  }
+
+  let selectedWord = nextWord;
+  if (!selectedWord) {
+    // All words shown, cycle back to oldest
+    console.log("[Push] All words shown, cycling back to oldest...");
+    const { data: oldestWord, error: oldestError } = await supabase
+      .from("words")
+      .select("id, word")
+      .order("date_shown", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (oldestError) {
+      console.error("[Push] Error fetching oldest word:", oldestError);
+      return null;
+    }
+    selectedWord = oldestWord;
+  }
+
+  if (!selectedWord) {
+    console.error("[Push] No words available in database");
+    return null;
+  }
+
+  // Set date_shown for the selected word
+  console.log(`[Push] Setting date_shown for word: ${selectedWord.word}`);
+  const { error: updateError } = await supabase
+    .from("words")
+    .update({ date_shown: todayParis })
+    .eq("id", selectedWord.id);
+
+  if (updateError) {
+    console.error("[Push] Error updating word date_shown:", updateError);
+  }
+
+  return { word: selectedWord.word, id: selectedWord.id };
 }
 
 Deno.serve(async (req) => {
@@ -241,12 +328,20 @@ Deno.serve(async (req) => {
 
     console.log(`[Push] Processing ${subscriptionsToNotify.length} subscription(s)`);
 
+    // Get today's word for the notification message
+    const todayWord = await getTodayWord(supabase);
+    const wordMessage = todayWord 
+      ? `Découvrez : ${todayWord.word}`
+      : 'Découvrez votre nouveau mot';
+
     const payload: PushPayload = {
       title: '🎯 Votre mot du jour est arrivé !',
-      body: 'Découvrez votre nouveau mot',
+      body: wordMessage,
       icon: '/icon-192.png',
       url: '/',
     };
+
+    console.log(`[Push] Notification body: ${wordMessage}`);
 
     const results = await Promise.all(
       subscriptionsToNotify.map((sub: PushSubscription) =>
