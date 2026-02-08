@@ -5,12 +5,6 @@ import { format, isToday, parseISO, differenceInDays, isSunday, startOfWeek, end
 
 const WORD_PROGRESS_KEY = 'mot-du-jour-word-progress';
 const USER_PROGRESS_KEY = 'mot-du-jour-user-progress';
-const DAILY_WORD_KEY = 'mot-du-jour-daily-word';
-
-interface DailyWordState {
-  wordId: string;
-  date: string;
-}
 
 export function useProgress() {
   const [wordProgress, setWordProgress] = useState<Record<string, WordProgress>>({});
@@ -19,23 +13,18 @@ export function useProgress() {
     lastActiveDate: null,
     totalWordsSeen: 0,
   });
-  const [dailyWord, setDailyWord] = useState<DailyWordState | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
     const storedWordProgress = localStorage.getItem(WORD_PROGRESS_KEY);
     const storedUserProgress = localStorage.getItem(USER_PROGRESS_KEY);
-    const storedDailyWord = localStorage.getItem(DAILY_WORD_KEY);
 
     if (storedWordProgress) {
       setWordProgress(JSON.parse(storedWordProgress));
     }
     if (storedUserProgress) {
       setUserProgress(JSON.parse(storedUserProgress));
-    }
-    if (storedDailyWord) {
-      setDailyWord(JSON.parse(storedDailyWord));
     }
     setIsLoaded(true);
   }, []);
@@ -53,33 +42,10 @@ export function useProgress() {
     }
   }, [userProgress, isLoaded]);
 
-  useEffect(() => {
-    if (isLoaded && dailyWord) {
-      localStorage.setItem(DAILY_WORD_KEY, JSON.stringify(dailyWord));
-    }
-  }, [dailyWord, isLoaded]);
-
-  // Get or assign today's word
-  const getTodayWord = useCallback(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    
-    // If we already have a word for today, return it
-    if (dailyWord && dailyWord.date === today) {
-      return words.find(w => w.id === dailyWord.wordId);
-    }
-
-    // Find words not yet shown
-    const seenWordIds = Object.keys(wordProgress).filter(id => wordProgress[id]?.seen);
-    const unseenWords = words.filter(w => !seenWordIds.includes(w.id));
-    
-    // Pick a random unseen word, or cycle back if all seen
-    const availableWords = unseenWords.length > 0 ? unseenWords : words;
-    const randomIndex = Math.floor(Math.random() * availableWords.length);
-    const selectedWord = availableWords[randomIndex];
-
-    setDailyWord({ wordId: selectedWord.id, date: today });
-    return selectedWord;
-  }, [dailyWord, wordProgress]);
+  // Check if a word has been seen
+  const isWordSeen = useCallback((wordId: string) => {
+    return wordProgress[wordId]?.seen || false;
+  }, [wordProgress]);
 
   // Mark a word as seen
   const markWordAsSeen = useCallback((wordId: string) => {
@@ -187,24 +153,16 @@ export function useProgress() {
     ).length;
   }, [wordProgress]);
 
-  // Check if today's word has been seen
-  const isTodayWordSeen = useCallback(() => {
-    if (!dailyWord) return false;
-    return wordProgress[dailyWord.wordId]?.seen || false;
-  }, [dailyWord, wordProgress]);
-
   return {
     wordProgress,
     userProgress,
     isLoaded,
-    getTodayWord,
     markWordAsSeen,
     recordQuizAnswer,
     getQuizWords,
     getWeeklyWords,
     isWeeklyReviewAvailable,
     getMasteredCount,
-    isTodayWordSeen,
-    dailyWord,
+    isWordSeen,
   };
 }

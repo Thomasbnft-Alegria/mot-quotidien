@@ -5,27 +5,25 @@ import { Card, CardContent } from '@/components/ui/card';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { BottomNav } from '@/components/BottomNav';
 import { useProgress } from '@/hooks/useProgress';
-import { Word } from '@/types/word';
-import { Sparkles, BookOpen } from 'lucide-react';
+import { useDailyWord } from '@/hooks/useDailyWord';
+import { Sparkles, BookOpen, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { NotificationPrompt } from '@/components/NotificationPrompt';
 
 export default function DailyWord() {
   const navigate = useNavigate();
-  const { getTodayWord, markWordAsSeen, isTodayWordSeen, isLoaded } = useProgress();
-  const [todayWord, setTodayWord] = useState<Word | undefined>();
+  const { word: todayWord, isLoading, error, refetch } = useDailyWord();
+  const { markWordAsSeen, isWordSeen, isLoaded } = useProgress();
   const [hasSeenToday, setHasSeenToday] = useState(false);
   const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
-    if (isLoaded) {
-      const word = getTodayWord();
-      setTodayWord(word);
-      setHasSeenToday(isTodayWordSeen());
+    if (isLoaded && todayWord) {
+      setHasSeenToday(isWordSeen(todayWord.id));
       // Delay content appearance for animation
       setTimeout(() => setShowContent(true), 100);
     }
-  }, [isLoaded, getTodayWord, isTodayWordSeen]);
+  }, [isLoaded, todayWord, isWordSeen]);
 
   const handleMarkSeen = () => {
     if (todayWord) {
@@ -34,10 +32,25 @@ export default function DailyWord() {
     }
   };
 
-  if (!isLoaded || !todayWord) {
+  if (isLoading || !isLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
+      </div>
+    );
+  }
+
+  if (error || !todayWord) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center pb-20 px-6">
+        <p className="text-muted-foreground mb-4 text-center">
+          {error || 'Impossible de charger le mot du jour'}
+        </p>
+        <Button onClick={refetch} variant="outline" className="gap-2">
+          <RefreshCw className="w-4 h-4" />
+          Réessayer
+        </Button>
+        <BottomNav />
       </div>
     );
   }
