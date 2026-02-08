@@ -5,14 +5,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { BottomNav } from '@/components/BottomNav';
-import { useProgress } from '@/hooks/useProgress';
+import { useQuizWords } from '@/hooks/useQuizWords';
 import { Word } from '@/types/word';
-import { words } from '@/data/words';
-import { Brain, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { Brain, CheckCircle, XCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Quiz() {
-  const { getQuizWords, recordQuizAnswer, isLoaded } = useProgress();
+  const { words: allAvailableWords, isLoading, refetch } = useQuizWords();
   const [quizStarted, setQuizStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -21,7 +20,10 @@ export default function Quiz() {
   const [results, setResults] = useState<{ wordId: string; correct: boolean }[]>([]);
 
   const startQuiz = useCallback(() => {
-    const wordsForQuiz = getQuizWords(5);
+    // Shuffle and take up to 5 words for the quiz
+    const shuffled = [...allAvailableWords].sort(() => Math.random() - 0.5);
+    const wordsForQuiz = shuffled.slice(0, Math.min(5, shuffled.length));
+    
     if (wordsForQuiz.length > 0) {
       setQuizWords(wordsForQuiz);
       setQuizStarted(true);
@@ -30,19 +32,19 @@ export default function Quiz() {
       setShowResult(false);
       setResults([]);
     }
-  }, [getQuizWords]);
+  }, [allAvailableWords]);
 
   const currentWord = quizWords[currentIndex];
 
-  // Generate answer choices for current word
+  // Generate answer choices for current word using all available words as distractors
   const answerChoices = useMemo(() => {
     if (!currentWord) return [];
 
-    // Get 3 random distractors (preferably same category)
-    const sameCategory = words.filter(
+    // Get distractors from all available words (preferably same category)
+    const sameCategory = allAvailableWords.filter(
       w => w.id !== currentWord.id && w.category === currentWord.category
     );
-    const otherWords = words.filter(
+    const otherWords = allAvailableWords.filter(
       w => w.id !== currentWord.id && w.category !== currentWord.category
     );
 
@@ -68,15 +70,13 @@ export default function Quiz() {
     ].sort(() => Math.random() - 0.5);
 
     return allChoices;
-  }, [currentWord]);
+  }, [currentWord, allAvailableWords]);
 
   const handleAnswer = (answerId: string, isCorrect: boolean) => {
     if (showResult) return;
     
     setSelectedAnswer(answerId);
     setShowResult(true);
-    
-    recordQuizAnswer(currentWord.id, isCorrect);
     setResults(prev => [...prev, { wordId: currentWord.id, correct: isCorrect }]);
   };
 
@@ -92,7 +92,7 @@ export default function Quiz() {
   const correctCount = results.filter(r => r.correct).length;
   const progress = ((currentIndex + (showResult ? 1 : 0)) / quizWords.length) * 100;
 
-  if (!isLoaded) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
@@ -102,8 +102,7 @@ export default function Quiz() {
 
   // No words available for quiz
   if (!quizStarted) {
-    const availableWords = getQuizWords(5);
-    const hasWords = availableWords.length > 0;
+    const hasWords = allAvailableWords.length > 0;
 
     return (
       <div className="min-h-screen bg-background pb-24">
@@ -121,18 +120,24 @@ export default function Quiz() {
             {hasWords ? (
               <>
                 <p className="text-muted-foreground mb-8">
-                  Révisez vos mots avec un quiz de {availableWords.length} question{availableWords.length > 1 ? 's' : ''}.
-                  Les mots les plus difficiles apparaîtront en premier.
+                  Révisez vos mots avec un quiz de {Math.min(5, allAvailableWords.length)} question{allAvailableWords.length > 1 ? 's' : ''}.
+                  Les mots sont choisis parmi les {allAvailableWords.length} mot{allAvailableWords.length > 1 ? 's' : ''} découvert{allAvailableWords.length > 1 ? 's' : ''}.
                 </p>
                 <Button size="lg" onClick={startQuiz} className="h-14 px-8 text-lg">
                   Commencer le quiz
                 </Button>
               </>
             ) : (
-              <p className="text-muted-foreground">
-                Vous n'avez pas encore de mots à réviser.<br />
-                Découvrez d'abord quelques mots du jour !
-              </p>
+              <div className="space-y-4">
+                <p className="text-muted-foreground">
+                  Vous n'avez pas encore de mots à réviser.<br />
+                  Découvrez d'abord quelques mots du jour !
+                </p>
+                <Button variant="outline" onClick={refetch} className="gap-2">
+                  <RefreshCw className="w-4 h-4" />
+                  Actualiser
+                </Button>
+              </div>
             )}
           </motion.div>
         </div>
