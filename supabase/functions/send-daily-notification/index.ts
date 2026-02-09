@@ -1,11 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildPushPayload } from "npm:@block65/webcrypto-web-push@1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-interface PushSubscription {
+interface DBSubscription {
   id: string;
   endpoint: string;
   p256dh: string;
@@ -14,113 +15,9 @@ interface PushSubscription {
   preferred_time: string;
 }
 
-interface PushPayload {
-  title: string;
-  body: string;
-  icon?: string;
-  url?: string;
-}
-
-// Convert VAPID key from base64url to Uint8Array
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-// Simple JWT creation for VAPID
-async function createVapidJwt(audience: string, subject: string, privateKeyBase64: string): Promise<string> {
-  const header = { alg: 'ES256', typ: 'JWT' };
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    aud: audience,
-    exp: now + 86400,
-    sub: subject,
-  };
-
-  const encodedHeader = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const encodedPayload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const unsignedToken = `${encodedHeader}.${encodedPayload}`;
-
-  // Import the private key
-  const privateKeyBytes = urlBase64ToUint8Array(privateKeyBase64);
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    privateKeyBytes,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign']
-  );
-
-  // Sign the token
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
-
-  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-  return `${unsignedToken}.${encodedSignature}`;
-}
-
-// Send push notification using Web Push protocol
-async function sendPushNotification(
-  subscription: PushSubscription,
-  payload: PushPayload,
-  vapidPublicKey: string,
-  vapidPrivateKey: string
-): Promise<{ success: boolean; error?: string; endpoint: string }> {
-  // Skip local/mock subscriptions
-  if (subscription.endpoint.startsWith('local-')) {
-    console.log(`[Push] Skipping local subscription: ${subscription.endpoint}`);
-    return { success: false, error: 'Local subscription - cannot send real push', endpoint: subscription.endpoint };
-  }
-
-  try {
-    const url = new URL(subscription.endpoint);
-    const audience = `${url.protocol}//${url.host}`;
-
-    // Create VAPID authorization header
-    const jwt = await createVapidJwt(audience, 'mailto:contact@mot-quotidien.app', vapidPrivateKey);
-    const vapidHeader = `vapid t=${jwt}, k=${vapidPublicKey}`;
-
-    // Prepare the payload
-    const payloadString = JSON.stringify(payload);
-    const payloadBytes = new TextEncoder().encode(payloadString);
-
-    // Send the push notification
-    const response = await fetch(subscription.endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': vapidHeader,
-        'Content-Type': 'application/octet-stream',
-        'Content-Encoding': 'aes128gcm',
-        'TTL': '86400',
-        'Urgency': 'normal',
-      },
-      body: payloadBytes,
-    });
-
-    if (response.ok || response.status === 201) {
-      console.log(`[Push] Sent successfully to: ${subscription.endpoint.substring(0, 50)}...`);
-      return { success: true, endpoint: subscription.endpoint };
-    } else {
-      const errorText = await response.text();
-      console.error(`[Push] Failed to send: ${response.status} - ${errorText}`);
-      return { success: false, error: `HTTP ${response.status}: ${errorText}`, endpoint: subscription.endpoint };
-    }
-  } catch (error) {
-    console.error(`[Push] Error sending notification:`, error);
-    return { success: false, error: String(error), endpoint: subscription.endpoint };
-  }
+// Convert standard base64 to base64url
+function b64ToB64url(b64: string): string {
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 // Get current time in Paris timezone
@@ -151,13 +48,9 @@ function getParisDateString(): string {
 
 // Check if preferred time matches current time (with 5-minute tolerance)
 function isTimeMatch(preferredTime: string, currentHours: number, currentMinutes: number): boolean {
-  // preferred_time format: "HH:MM:SS" or "HH:MM"
   const [prefHours, prefMinutes] = preferredTime.split(':').map(Number);
-  
   const prefTotalMinutes = prefHours * 60 + prefMinutes;
   const currentTotalMinutes = currentHours * 60 + currentMinutes;
-  
-  // Check if within 5-minute window (0-4 minutes after preferred time)
   const diff = currentTotalMinutes - prefTotalMinutes;
   return diff >= 0 && diff < 5;
 }
@@ -167,7 +60,6 @@ async function getTodayWord(supabase: ReturnType<typeof createClient>): Promise<
   const todayParis = getParisDateString();
   console.log(`[Push] Getting daily word for Paris date: ${todayParis}`);
 
-  // Check if we already have a word for today
   const { data: todayWord, error: fetchError } = await supabase
     .from("words")
     .select("id, word")
@@ -184,9 +76,7 @@ async function getTodayWord(supabase: ReturnType<typeof createClient>): Promise<
     return { word: todayWord.word, id: todayWord.id };
   }
 
-  // No word for today - select next unshown word
   console.log("[Push] No word for today, selecting next unshown word...");
-  
   const { data: nextWord, error: nextError } = await supabase
     .from("words")
     .select("id, word")
@@ -202,7 +92,6 @@ async function getTodayWord(supabase: ReturnType<typeof createClient>): Promise<
 
   let selectedWord = nextWord;
   if (!selectedWord) {
-    // All words shown, cycle back to oldest
     console.log("[Push] All words shown, cycling back to oldest...");
     const { data: oldestWord, error: oldestError } = await supabase
       .from("words")
@@ -223,7 +112,6 @@ async function getTodayWord(supabase: ReturnType<typeof createClient>): Promise<
     return null;
   }
 
-  // Set date_shown for the selected word
   console.log(`[Push] Setting date_shown for word: ${selectedWord.word}`);
   const { error: updateError } = await supabase
     .from("words")
@@ -238,7 +126,6 @@ async function getTodayWord(supabase: ReturnType<typeof createClient>): Promise<
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -257,6 +144,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Debug: log VAPID public key info
+    console.log(`[Push] VAPID public key length: ${vapidPublicKey.length}, starts with: ${vapidPublicKey.substring(0, 10)}`);
+    console.log(`[Push] VAPID private key length: ${vapidPrivateKey.length}`);
+
+    const vapid = {
+      subject: 'mailto:contact@mot-quotidien.app',
+      publicKey: vapidPublicKey,
+      privateKey: vapidPrivateKey,
+    };
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
@@ -269,11 +166,9 @@ Deno.serve(async (req) => {
       isTest = body.test === true;
       isScheduled = body.scheduled === true;
     } catch {
-      // No body or invalid JSON, treat as scheduled cron call
       isScheduled = true;
     }
 
-    // Get current Paris time
     const { hours: currentHours, minutes: currentMinutes, timeString: currentTime } = getParisTime();
     console.log(`[Push] Current Paris time: ${currentTime}, isScheduled=${isScheduled}, isTest=${isTest}`);
 
@@ -305,10 +200,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Filter subscriptions based on preferred time (only for scheduled calls)
+    // Filter by preferred time for scheduled calls
     let subscriptionsToNotify = subscriptions;
     if (isScheduled && !isTest) {
-      subscriptionsToNotify = subscriptions.filter((sub: PushSubscription) => 
+      subscriptionsToNotify = subscriptions.filter((sub: DBSubscription) =>
         isTimeMatch(sub.preferred_time, currentHours, currentMinutes)
       );
       console.log(`[Push] Found ${subscriptionsToNotify.length} subscriptions matching current time ${currentTime}`);
@@ -316,11 +211,11 @@ Deno.serve(async (req) => {
 
     if (subscriptionsToNotify.length === 0) {
       return new Response(
-        JSON.stringify({ 
-          message: 'No subscriptions due for notification at this time', 
+        JSON.stringify({
+          message: 'No subscriptions due for notification at this time',
           currentTime,
           totalSubscriptions: subscriptions.length,
-          sent: 0 
+          sent: 0
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -328,34 +223,70 @@ Deno.serve(async (req) => {
 
     console.log(`[Push] Processing ${subscriptionsToNotify.length} subscription(s)`);
 
-    // Get today's word for the notification message
+    // Get today's word
     const todayWord = await getTodayWord(supabase);
-    // Build notification payload per subscription (to include preferred_time for tests)
-    const buildPayload = (sub: PushSubscription): PushPayload => {
-      const wordName = todayWord ? todayWord.word : 'votre nouveau mot';
-      const prefTime = sub.preferred_time ? sub.preferred_time.substring(0, 5) : '??:??';
-      
-      if (isTest) {
-        return {
-          title: `Découvrez : ${wordName} (test - heure planifiée : ${prefTime})`,
+    const wordName = todayWord ? todayWord.word : 'votre nouveau mot';
+
+    // Send push to each subscription
+    const results = await Promise.all(
+      subscriptionsToNotify.map(async (sub: DBSubscription) => {
+        // Skip local/mock subscriptions
+        if (sub.endpoint.startsWith('local-')) {
+          console.log(`[Push] Skipping local subscription: ${sub.endpoint}`);
+          return { success: false, error: 'Local subscription', endpoint: sub.endpoint };
+        }
+
+        const prefTime = sub.preferred_time ? sub.preferred_time.substring(0, 5) : '??:??';
+
+        const title = isTest
+          ? `Découvrez : ${wordName} (test - heure planifiée : ${prefTime})`
+          : `Découvrez : ${wordName}`;
+
+        const notificationPayload = JSON.stringify({
+          title,
           body: '',
           icon: '/icon-192.png',
           url: '/',
-        };
-      }
-      return {
-        title: `Découvrez : ${wordName}`,
-        body: '',
-        icon: '/icon-192.png',
-        url: '/',
-      };
-    };
+        });
 
-    const results = await Promise.all(
-      subscriptionsToNotify.map((sub: PushSubscription) => {
-        const payload = buildPayload(sub);
-        console.log(`[Push] Sending to ${sub.endpoint.substring(0, 40)}... payload: ${payload.title}`);
-        return sendPushNotification(sub, payload, vapidPublicKey, vapidPrivateKey);
+        console.log(`[Push] Sending to ${sub.endpoint.substring(0, 50)}... title: ${title}`);
+
+        try {
+          // Convert DB keys (standard base64) to base64url for the library
+          const subscription = {
+            endpoint: sub.endpoint,
+            expirationTime: null as number | null,
+            keys: {
+              p256dh: b64ToB64url(sub.p256dh),
+              auth: b64ToB64url(sub.auth),
+            },
+          };
+
+          // Build the encrypted push payload using Web Crypto
+          const pushPayload = await buildPushPayload(
+            {
+              data: notificationPayload,
+              options: { ttl: 86400, urgency: 'normal' },
+            },
+            subscription,
+            vapid,
+          );
+
+          // Send the push notification
+          const response = await fetch(sub.endpoint, pushPayload);
+
+          if (response.ok || response.status === 201) {
+            console.log(`[Push] Sent successfully to: ${sub.endpoint.substring(0, 50)}...`);
+            return { success: true, endpoint: sub.endpoint };
+          } else {
+            const errorText = await response.text();
+            console.error(`[Push] Failed: ${response.status} - ${errorText}`);
+            return { success: false, error: `HTTP ${response.status}: ${errorText}`, endpoint: sub.endpoint };
+          }
+        } catch (err) {
+          console.error(`[Push] Error sending to ${sub.endpoint.substring(0, 50)}:`, err);
+          return { success: false, error: String(err), endpoint: sub.endpoint };
+        }
       })
     );
 
@@ -366,10 +297,10 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        message: `Notifications processed`,
+        message: 'Notifications processed',
         currentTime,
         sent: successful,
-        failed: failed,
+        failed,
         total: subscriptionsToNotify.length,
         results: isTest ? results : undefined,
       }),
