@@ -330,23 +330,33 @@ Deno.serve(async (req) => {
 
     // Get today's word for the notification message
     const todayWord = await getTodayWord(supabase);
-    const wordMessage = todayWord 
-      ? `Découvrez : ${todayWord.word}`
-      : 'Découvrez votre nouveau mot';
-
-    const payload: PushPayload = {
-      title: wordMessage,
-      body: '',
-      icon: '/icon-192.png',
-      url: '/',
+    // Build notification payload per subscription (to include preferred_time for tests)
+    const buildPayload = (sub: PushSubscription): PushPayload => {
+      const wordName = todayWord ? todayWord.word : 'votre nouveau mot';
+      const prefTime = sub.preferred_time ? sub.preferred_time.substring(0, 5) : '??:??';
+      
+      if (isTest) {
+        return {
+          title: `Découvrez : ${wordName} (test - heure planifiée : ${prefTime})`,
+          body: '',
+          icon: '/icon-192.png',
+          url: '/',
+        };
+      }
+      return {
+        title: `Découvrez : ${wordName}`,
+        body: '',
+        icon: '/icon-192.png',
+        url: '/',
+      };
     };
 
-    console.log(`[Push] Notification body: ${wordMessage}`);
-
     const results = await Promise.all(
-      subscriptionsToNotify.map((sub: PushSubscription) =>
-        sendPushNotification(sub, payload, vapidPublicKey, vapidPrivateKey)
-      )
+      subscriptionsToNotify.map((sub: PushSubscription) => {
+        const payload = buildPayload(sub);
+        console.log(`[Push] Sending to ${sub.endpoint.substring(0, 40)}... payload: ${payload.title}`);
+        return sendPushNotification(sub, payload, vapidPublicKey, vapidPrivateKey);
+      })
     );
 
     const successful = results.filter(r => r.success).length;
@@ -361,7 +371,7 @@ Deno.serve(async (req) => {
         sent: successful,
         failed: failed,
         total: subscriptionsToNotify.length,
-        payload: isTest ? payload : undefined,
+        results: isTest ? results : undefined,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

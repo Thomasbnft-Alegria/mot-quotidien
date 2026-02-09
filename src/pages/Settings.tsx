@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send } from 'lucide-react';
+import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -20,15 +21,23 @@ export default function Settings() {
     updatePreferredTime
   } = usePushNotifications();
 
+  const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+
   const handleTestNotification = async () => {
-    console.log('[Settings] handleTestNotification clicked');
-    const success = await sendTestNotification();
-    console.log('[Settings] sendTestNotification result:', success);
-    if (success) {
-      toast.success('Notification envoyée !');
+    setIsTesting(true);
+    setTestResult(null);
+    setTestError(null);
+    const result = await sendTestNotification();
+    if (result.success && result.data) {
+      setTestResult(result.data);
+      toast.success(`Test terminé : ${result.data.sent ?? 0} notification(s) envoyée(s)`);
     } else {
-      toast.error('Erreur : vérifiez les permissions de notification');
+      setTestError(result.error || 'Erreur inconnue');
+      toast.error('Erreur lors du test');
     }
+    setIsTesting(false);
   };
 
   const handleToggle = async (checked: boolean) => {
@@ -180,12 +189,37 @@ export default function Settings() {
                   <Button
                     variant="outline"
                     onClick={handleTestNotification}
-                    disabled={isLoading}
+                    disabled={isLoading || isTesting}
                     className="w-full gap-2"
                   >
-                    <Send className="w-4 h-4" />
-                    Tester maintenant
+                    {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {isTesting ? 'Test en cours...' : 'Tester le flux complet'}
                   </Button>
+
+                  {/* Test Result Display */}
+                  {testResult && (
+                    <div className="p-4 bg-success/10 rounded-lg space-y-1 text-sm">
+                      <p className="font-medium text-success">✅ Résultat du test</p>
+                      <p className="text-foreground">Envoyées : <strong>{String(testResult.sent ?? 0)}</strong> / {String(testResult.total ?? 0)}</p>
+                      {testResult.failed ? <p className="text-destructive">Échouées : {String(testResult.failed)}</p> : null}
+                      <p className="text-muted-foreground">Heure serveur (Paris) : {String(testResult.currentTime ?? '—')}</p>
+                      {testResult.results && Array.isArray(testResult.results) && (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Détails</summary>
+                          <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-x-auto">
+                            {JSON.stringify(testResult.results, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  )}
+
+                  {testError && (
+                    <div className="p-4 bg-destructive/10 rounded-lg text-sm">
+                      <p className="font-medium text-destructive">❌ Erreur</p>
+                      <p className="text-destructive/80">{testError}</p>
+                    </div>
+                  )}
                 </>
               )}
 
