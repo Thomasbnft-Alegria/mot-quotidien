@@ -6,7 +6,7 @@ const SUBSCRIPTION_ENDPOINT_KEY = 'push_subscription_endpoint';
 const PREFERRED_TIME_KEY = 'push_preferred_time';
 
 // VAPID public key - must match the one in Supabase secrets
-const VAPID_PUBLIC_KEY = 'BKKBrfXapypw_ZoLMwN-5e7FjdjSAecpDCUzRznb_60UOaM4o_rDq9fFUEGZD4hBsxfQfvyIjbiZCFsoHu_yMSY';
+const VAPID_PUBLIC_KEY = 'BJdFoUcnZB61ko_lThX8reUBGYedkJ7xTVSIXGCXjpfrWIl1muCEimqMypW6Y6NXW1hfYLRD3Tsy8SL9TEDv_jY';
 
 type PermissionStatus = 'default' | 'granted' | 'denied' | 'unsupported';
 
