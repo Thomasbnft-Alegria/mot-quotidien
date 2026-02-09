@@ -245,7 +245,7 @@ export function usePushNotifications() {
     }
   }, []);
 
-  const sendTestNotification = useCallback(async (): Promise<boolean> => {
+  const sendTestNotification = useCallback(async (): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> => {
     console.log('[Notification] sendTestNotification called');
     
     const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
@@ -261,33 +261,13 @@ export function usePushNotifications() {
 
       if (error) {
         console.error('[Notification] Edge function error:', error);
+        return { success: false, error: error.message || String(error) };
       }
+
+      return { success: true, data };
     } catch (err) {
       console.error('[Notification] Failed to call edge function:', err);
-    }
-
-    // Also show local notification as fallback
-    if (!('Notification' in window) || Notification.permission !== 'granted') {
-      return false;
-    }
-
-    try {
-      console.log('[Notification] Creating local notification...');
-      const notification = new Notification('🎯 Votre mot du jour est arrivé !', {
-        body: 'Ceci est un test - Découvrez votre nouveau mot',
-        icon: '/icon-192.png',
-        tag: 'test-notification'
-      });
-
-      notification.onclick = () => {
-        window.focus();
-        window.location.href = '/';
-      };
-
-      return true;
-    } catch (error) {
-      console.error('[Notification] Error creating notification:', error);
-      return false;
+      return { success: false, error: String(err) };
     }
   }, []);
 
