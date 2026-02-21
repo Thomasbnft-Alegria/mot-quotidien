@@ -102,13 +102,13 @@ export function usePushNotifications() {
       const registration = await navigator.serviceWorker.ready;
       console.log('[Push] Service worker ready');
       
-      let subscription = await registration.pushManager.getSubscription();
+      let subscription = await (registration as any).pushManager.getSubscription();
       console.log('[Push] Existing subscription:', subscription ? 'yes' : 'no');
       
       if (!subscription && VAPID_PUBLIC_KEY) {
         try {
           console.log('[Push] Subscribing with VAPID key...');
-          subscription = await registration.pushManager.subscribe({
+          subscription = await (registration as any).pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
           });

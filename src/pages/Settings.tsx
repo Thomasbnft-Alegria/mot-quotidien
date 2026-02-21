@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2 } from 'lucide-react';
+import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2, LogOut } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,10 @@ import { BottomNav } from '@/components/BottomNav';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { TimePicker } from '@/components/TimePicker';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Settings() {
+  const { user, signOut } = useAuth();
   const {
     permissionStatus,
     isSubscribed,
@@ -261,6 +263,32 @@ export default function Settings() {
             </Card>
           </motion.div>
         )}
+        {/* Logout */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="mt-6"
+        >
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-foreground">Connecté en tant que</p>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={async () => { await signOut(); }}
+                  className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Se déconnecter
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       <BottomNav />

@@ -6,12 +6,14 @@ import { Progress } from '@/components/ui/progress';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { BottomNav } from '@/components/BottomNav';
 import { useQuizWords } from '@/hooks/useQuizWords';
+import { useProgress } from '@/hooks/useProgress';
 import { Word } from '@/types/word';
 import { Brain, CheckCircle, XCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Quiz() {
-  const { quizWords: availableQuizWords, allWords: allWordsForDistractors, isLoading, refetch } = useQuizWords();
+  const { allWords: allWordsForDistractors, isLoading: wordsLoading, refetch } = useQuizWords();
+  const { getQuizWords, recordQuizAnswer, isLoaded } = useProgress();
   const [quizStarted, setQuizStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -19,8 +21,11 @@ export default function Quiz() {
   const [quizWords, setQuizWords] = useState<Word[]>([]);
   const [results, setResults] = useState<{ wordId: string; correct: boolean }[]>([]);
 
+  const availableQuizWords = useMemo(() => {
+    return getQuizWords(allWordsForDistractors);
+  }, [getQuizWords, allWordsForDistractors]);
+
   const startQuiz = useCallback(() => {
-    // Shuffle and take up to 5 words for the quiz
     const shuffled = [...availableQuizWords].sort(() => Math.random() - 0.5);
     const wordsForQuiz = shuffled.slice(0, Math.min(5, shuffled.length));
     
@@ -36,70 +41,49 @@ export default function Quiz() {
 
   const currentWord = quizWords[currentIndex];
 
-  // Generate answer choices for current word using ALL words as distractors
   const answerChoices = useMemo(() => {
     if (!currentWord) return [];
 
     const distractors: Word[] = [];
     const usedIds = new Set<string>([currentWord.id]);
 
-    // Priority 1: Same category AND same register (from all words)
     const sameCategoryAndRegister = allWordsForDistractors.filter(
-      w => w.id !== currentWord.id && 
-           w.category === currentWord.category && 
-           w.register === currentWord.register
+      w => w.id !== currentWord.id && w.category === currentWord.category && w.register === currentWord.register
     );
-    const shuffledSameCategoryAndRegister = [...sameCategoryAndRegister].sort(() => Math.random() - 0.5);
-    
-    for (const word of shuffledSameCategoryAndRegister) {
+    const shuffledSameCR = [...sameCategoryAndRegister].sort(() => Math.random() - 0.5);
+    for (const word of shuffledSameCR) {
       if (distractors.length >= 3) break;
-      if (!usedIds.has(word.id)) {
-        distractors.push(word);
-        usedIds.add(word.id);
-      }
+      if (!usedIds.has(word.id)) { distractors.push(word); usedIds.add(word.id); }
     }
 
-    // Priority 2: Same category only (if we need more)
     if (distractors.length < 3) {
-      const sameCategoryOnly = allWordsForDistractors.filter(
-        w => !usedIds.has(w.id) && w.category === currentWord.category
-      );
-      const shuffledSameCategory = [...sameCategoryOnly].sort(() => Math.random() - 0.5);
-      
-      for (const word of shuffledSameCategory) {
+      const sameCategory = allWordsForDistractors.filter(w => !usedIds.has(w.id) && w.category === currentWord.category);
+      for (const word of [...sameCategory].sort(() => Math.random() - 0.5)) {
         if (distractors.length >= 3) break;
-        distractors.push(word);
-        usedIds.add(word.id);
+        distractors.push(word); usedIds.add(word.id);
       }
     }
 
-    // Priority 3: Any random words (if we still need more)
     if (distractors.length < 3) {
       const anyOther = allWordsForDistractors.filter(w => !usedIds.has(w.id));
-      const shuffledOther = [...anyOther].sort(() => Math.random() - 0.5);
-      
-      for (const word of shuffledOther) {
+      for (const word of [...anyOther].sort(() => Math.random() - 0.5)) {
         if (distractors.length >= 3) break;
-        distractors.push(word);
-        usedIds.add(word.id);
+        distractors.push(word); usedIds.add(word.id);
       }
     }
 
-    // Combine correct answer with distractors and shuffle
-    const allChoices = [
+    return [
       { id: currentWord.id, definition: currentWord.definition, isCorrect: true },
       ...distractors.map(w => ({ id: w.id, definition: w.definition, isCorrect: false }))
     ].sort(() => Math.random() - 0.5);
-
-    return allChoices;
   }, [currentWord, allWordsForDistractors]);
 
   const handleAnswer = (answerId: string, isCorrect: boolean) => {
     if (showResult) return;
-    
     setSelectedAnswer(answerId);
     setShowResult(true);
     setResults(prev => [...prev, { wordId: currentWord.id, correct: isCorrect }]);
+    recordQuizAnswer(currentWord.id, isCorrect);
   };
 
   const handleNext = () => {
@@ -114,7 +98,7 @@ export default function Quiz() {
   const correctCount = results.filter(r => r.correct).length;
   const progress = ((currentIndex + (showResult ? 1 : 0)) / quizWords.length) * 100;
 
-  if (isLoading) {
+  if (wordsLoading || !isLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
@@ -122,42 +106,31 @@ export default function Quiz() {
     );
   }
 
-  // No words available for quiz
   if (!quizStarted) {
     const hasWords = availableQuizWords.length > 0;
 
     return (
       <div className="min-h-screen bg-background pb-24">
         <div className="max-w-lg mx-auto px-6 py-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
             <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
               <Brain className="w-10 h-10 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-4">Quiz de révision</h1>
-            
             {hasWords ? (
               <>
                 <p className="text-muted-foreground mb-8">
                   Révisez vos mots avec un quiz de {Math.min(5, availableQuizWords.length)} question{availableQuizWords.length > 1 ? 's' : ''}.
-                  Les mots sont choisis parmi les {availableQuizWords.length} mot{availableQuizWords.length > 1 ? 's' : ''} découvert{availableQuizWords.length > 1 ? 's' : ''}.
                 </p>
-                <Button size="lg" onClick={startQuiz} className="h-14 px-8 text-lg">
-                  Commencer le quiz
-                </Button>
+                <Button size="lg" onClick={startQuiz} className="h-14 px-8 text-lg">Commencer le quiz</Button>
               </>
             ) : (
               <div className="space-y-4">
                 <p className="text-muted-foreground">
-                  Vous n'avez pas encore de mots à réviser.<br />
-                  Découvrez d'abord quelques mots du jour !
+                  Vous n'avez pas encore de mots à réviser.<br />Découvrez d'abord quelques mots du jour !
                 </p>
                 <Button variant="outline" onClick={refetch} className="gap-2">
-                  <RefreshCw className="w-4 h-4" />
-                  Actualiser
+                  <RefreshCw className="w-4 h-4" />Actualiser
                 </Button>
               </div>
             )}
@@ -168,55 +141,29 @@ export default function Quiz() {
     );
   }
 
-  // Quiz complete screen
   if (isQuizComplete) {
     const percentage = Math.round((correctCount / quizWords.length) * 100);
-    
     return (
       <div className="min-h-screen bg-background pb-24">
         <div className="max-w-lg mx-auto px-6 py-8">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
-          >
-            <div className={cn(
-              "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6",
-              percentage >= 80 ? "bg-success/10" : percentage >= 50 ? "bg-primary/10" : "bg-destructive/10"
-            )}>
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
+            <div className={cn("w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6", percentage >= 80 ? "bg-success/10" : percentage >= 50 ? "bg-primary/10" : "bg-destructive/10")}>
               <span className="text-4xl font-bold text-foreground">{percentage}%</span>
             </div>
-            
             <h1 className="text-2xl font-bold text-foreground mb-2">Quiz terminé !</h1>
-            <p className="text-muted-foreground mb-6">
-              {correctCount} bonne{correctCount > 1 ? 's' : ''} réponse{correctCount > 1 ? 's' : ''} sur {quizWords.length}
-            </p>
-
+            <p className="text-muted-foreground mb-6">{correctCount} bonne{correctCount > 1 ? 's' : ''} réponse{correctCount > 1 ? 's' : ''} sur {quizWords.length}</p>
             <div className="space-y-3 mb-8">
               {results.map((result, idx) => {
                 const word = quizWords[idx];
                 return (
-                  <div
-                    key={result.wordId}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg",
-                      result.correct ? "bg-success/10" : "bg-destructive/10"
-                    )}
-                  >
+                  <div key={result.wordId} className={cn("flex items-center justify-between p-3 rounded-lg", result.correct ? "bg-success/10" : "bg-destructive/10")}>
                     <span className="font-medium">{word.word}</span>
-                    {result.correct ? (
-                      <CheckCircle className="w-5 h-5 text-success" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-destructive" />
-                    )}
+                    {result.correct ? <CheckCircle className="w-5 h-5 text-success" /> : <XCircle className="w-5 h-5 text-destructive" />}
                   </div>
                 );
               })}
             </div>
-
-            <Button size="lg" onClick={startQuiz} className="h-14 px-8 text-lg">
-              Recommencer
-            </Button>
+            <Button size="lg" onClick={startQuiz} className="h-14 px-8 text-lg">Recommencer</Button>
           </motion.div>
         </div>
         <BottomNav />
@@ -227,7 +174,6 @@ export default function Quiz() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-6 py-8">
-        {/* Progress bar */}
         <div className="mb-8">
           <div className="flex justify-between text-sm text-muted-foreground mb-2">
             <span>Question {currentIndex + 1}/{quizWords.length}</span>
@@ -236,36 +182,21 @@ export default function Quiz() {
           <Progress value={progress} className="h-2" />
         </div>
 
-        {/* Question Card */}
         <AnimatePresence mode="wait">
-          <motion.div
-            key={currentIndex}
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
-          >
+          <motion.div key={currentIndex} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>
             <Card className="border-0 shadow-lg mb-6">
               <CardContent className="p-6">
-                <div className="flex justify-center mb-4">
-                  <CategoryBadge category={currentWord.category} />
-                </div>
-                <h2 className="text-3xl font-bold text-center text-foreground">
-                  {currentWord.word}
-                </h2>
-                <p className="text-center text-sm text-muted-foreground mt-2">
-                  Quelle est la définition ?
-                </p>
+                <div className="flex justify-center mb-4"><CategoryBadge category={currentWord.category} /></div>
+                <h2 className="text-3xl font-bold text-center text-foreground">{currentWord.word}</h2>
+                <p className="text-center text-sm text-muted-foreground mt-2">Quelle est la définition ?</p>
               </CardContent>
             </Card>
 
-            {/* Answer choices */}
             <div className="space-y-3">
               {answerChoices.map((choice) => {
                 const isSelected = selectedAnswer === choice.id;
                 const showCorrect = showResult && choice.isCorrect;
                 const showIncorrect = showResult && isSelected && !choice.isCorrect;
-
                 return (
                   <motion.button
                     key={choice.id}
@@ -298,18 +229,9 @@ export default function Quiz() {
               })}
             </div>
 
-            {/* Next button */}
             {showResult && !isQuizComplete && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6"
-              >
-                <Button
-                  size="lg"
-                  onClick={handleNext}
-                  className="w-full h-14 text-lg gap-2"
-                >
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
+                <Button size="lg" onClick={handleNext} className="w-full h-14 text-lg gap-2">
                   Question suivante
                   <ArrowRight className="w-5 h-5" />
                 </Button>

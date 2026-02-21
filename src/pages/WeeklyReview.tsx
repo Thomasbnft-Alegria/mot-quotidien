@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { BottomNav } from '@/components/BottomNav';
 import { useProgress } from '@/hooks/useProgress';
+import { useQuizWords } from '@/hooks/useQuizWords';
 import { Word } from '@/types/word';
 import { Calendar, Lock, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,6 +17,7 @@ interface ReviewResult {
 }
 
 export default function WeeklyReview() {
+  const { allWords, isLoading: wordsLoading } = useQuizWords();
   const { getWeeklyWords, isWeeklyReviewAvailable, recordQuizAnswer, isLoaded } = useProgress();
   const [reviewStarted, setReviewStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -27,7 +29,7 @@ export default function WeeklyReview() {
   const isSunday = isWeeklyReviewAvailable();
 
   const startReview = useCallback(() => {
-    const words = getWeeklyWords();
+    const words = getWeeklyWords(allWords);
     if (words.length > 0) {
       setWeeklyWords(words);
       setReviewStarted(true);
@@ -36,7 +38,7 @@ export default function WeeklyReview() {
       setShowDefinition(false);
       setResults([]);
     }
-  }, [getWeeklyWords]);
+  }, [getWeeklyWords, allWords]);
 
   const currentWord = weeklyWords[currentIndex];
 
@@ -58,7 +60,7 @@ export default function WeeklyReview() {
   const isReviewComplete = results.length === weeklyWords.length && weeklyWords.length > 0;
   const knewCount = results.filter(r => r.knew).length;
 
-  if (!isLoaded) {
+  if (!isLoaded || wordsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
@@ -94,7 +96,7 @@ export default function WeeklyReview() {
 
   // Sunday but review not started
   if (!reviewStarted) {
-    const availableWords = getWeeklyWords();
+    const availableWords = getWeeklyWords(allWords);
     const hasWords = availableWords.length > 0;
 
     return (
