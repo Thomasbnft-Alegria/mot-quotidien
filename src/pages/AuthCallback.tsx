@@ -1,31 +1,48 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle, Loader2, XCircle, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function AuthCallback() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'pwa-redirect'>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [pwaLink, setPwaLink] = useState<string | null>(null);
 
   useEffect(() => {
-    // Supabase JS automatically picks up the token from the URL hash
-    // when the client is initialised. We just need to wait for the session.
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as any).standalone === true;
+
+    if (accessToken && refreshToken && !isStandalone) {
+      // We're in the browser, not the PWA — offer a deep link to the PWA
+      const pwaUrl = `https://mot-quotidien.lovable.app/#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&type=recovery`;
+      setPwaLink(pwaUrl);
+      setStatus('pwa-redirect');
+      return;
+    }
+
+    // In PWA or no tokens — let Supabase handle the hash automatically
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         setStatus('success');
+        // Clear hash
+        window.history.replaceState(null, '', window.location.pathname);
       }
     });
 
-    // Also check if a session already exists (token already exchanged)
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
+    supabase.auth.getSession().then(({ data: { session }, error: err }) => {
+      if (err) {
         setStatus('error');
-        setError(error.message);
+        setError(err.message);
       } else if (session) {
         setStatus('success');
       }
     });
 
-    // Timeout fallback
     const timeout = setTimeout(() => {
       setStatus((prev) => (prev === 'loading' ? 'error' : prev));
       setError('Le lien a expiré ou est invalide.');
@@ -41,6 +58,22 @@ export default function AuthCallback() {
           <>
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Connexion en cours…</p>
+          </>
+        )}
+
+        {status === 'pwa-redirect' && (
+          <>
+            <CheckCircle className="w-14 h-14 text-success mx-auto mb-4" />
+            <h1 className="text-xl font-bold text-foreground mb-2">Connexion réussie !</h1>
+            <p className="text-muted-foreground text-sm mb-6">
+              Ouvrez l'app depuis le bouton ci-dessous pour finaliser la connexion.
+            </p>
+            <Button asChild size="lg" className="w-full gap-2">
+              <a href={pwaLink!}>
+                <ExternalLink className="w-4 h-4" />
+                Ouvrir l'app
+              </a>
+            </Button>
           </>
         )}
 
