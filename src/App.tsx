@@ -9,6 +9,7 @@ import WeeklyReview from "./pages/WeeklyReview";
 import ProgressPage from "./pages/ProgressPage";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import { useServiceWorker } from "./hooks/useServiceWorker";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
@@ -34,6 +35,7 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/login" element={
         isLoading ? (
           <div className="min-h-screen bg-background flex items-center justify-center">
