@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+
 import DailyWord from "./pages/DailyWord";
 import Quiz from "./pages/Quiz";
 import WeeklyReview from "./pages/WeeklyReview";
@@ -35,27 +35,9 @@ function AppRoutes() {
   useServiceWorker();
   const { user, isLoading } = useAuth();
 
-  // On PWA launch, check if hash contains tokens passed via deep link
-  useEffect(() => {
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
-
-    if (accessToken && refreshToken) {
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      }).then(() => {
-        // Clear hash after session is set
-        window.history.replaceState(null, '', window.location.pathname);
-      });
-    }
-  }, []);
-
   return (
     <Routes>
-      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/auth-callback" element={<AuthCallback />} />
       <Route path="/login" element={
         isLoading ? (
           <div className="min-h-screen bg-background flex items-center justify-center">
