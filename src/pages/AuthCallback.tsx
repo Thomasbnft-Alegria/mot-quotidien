@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Loader2, XCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+const isStandalone = () =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  (navigator as any).standalone === true;
+
 export default function AuthCallback() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'pwa-redirect'>('loading');
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<'loading' | 'pwa-redirect' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [pwaLink, setPwaLink] = useState<string | null>(null);
 
@@ -14,42 +20,34 @@ export default function AuthCallback() {
     const accessToken = params.get('access_token');
     const refreshToken = params.get('refresh_token');
 
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-      || (navigator as any).standalone === true;
+    if (!accessToken || !refreshToken) {
+      setStatus('error');
+      setError('Lien invalide ou expiré.');
+      return;
+    }
 
-    if (accessToken && refreshToken && !isStandalone) {
-      // We're in the browser, not the PWA — offer a deep link to the PWA
-      const pwaUrl = `https://mot-quotidien.lovable.app/#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&type=recovery`;
+    if (!isStandalone()) {
+      // In browser — don't set session, just offer deep link to PWA
+      const pwaUrl = `https://mot-quotidien.lovable.app/auth-callback#${hash}`;
       setPwaLink(pwaUrl);
       setStatus('pwa-redirect');
       return;
     }
 
-    // In PWA or no tokens — let Supabase handle the hash automatically
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        setStatus('success');
-        // Clear hash
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session }, error: err }) => {
+    // In PWA — set the session
+    supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    }).then(({ error: err }) => {
       if (err) {
         setStatus('error');
         setError(err.message);
-      } else if (session) {
-        setStatus('success');
+      } else {
+        window.history.replaceState(null, '', '/');
+        navigate('/', { replace: true });
       }
     });
-
-    const timeout = setTimeout(() => {
-      setStatus((prev) => (prev === 'loading' ? 'error' : prev));
-      setError('Le lien a expiré ou est invalide.');
-    }, 10000);
-
-    return () => clearTimeout(timeout);
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
@@ -66,24 +64,14 @@ export default function AuthCallback() {
             <CheckCircle className="w-14 h-14 text-success mx-auto mb-4" />
             <h1 className="text-xl font-bold text-foreground mb-2">Connexion réussie !</h1>
             <p className="text-muted-foreground text-sm mb-6">
-              Ouvrez l'app depuis le bouton ci-dessous pour finaliser la connexion.
+              Appuyez sur le bouton ci-dessous pour ouvrir l'app et finaliser la connexion.
             </p>
-            <Button asChild size="lg" className="w-full gap-2">
+            <Button asChild size="lg" className="w-full gap-2 h-14 text-base">
               <a href={pwaLink!}>
-                <ExternalLink className="w-4 h-4" />
-                Ouvrir l'app
+                <ExternalLink className="w-5 h-5" />
+                Ouvrir Mot Quotidien
               </a>
             </Button>
-          </>
-        )}
-
-        {status === 'success' && (
-          <>
-            <CheckCircle className="w-14 h-14 text-success mx-auto mb-4" />
-            <h1 className="text-xl font-bold text-foreground mb-2">Connexion réussie !</h1>
-            <p className="text-muted-foreground text-sm">
-              Vous pouvez retourner sur l'app depuis votre écran d'accueil.
-            </p>
           </>
         )}
 
