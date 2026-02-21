@@ -47,6 +47,83 @@ export type Database = {
         }
         Relationships: []
       }
+      user_progress: {
+        Row: {
+          correct_count: number
+          created_at: string
+          id: string
+          incorrect_count: number
+          last_reviewed: string | null
+          seen: boolean
+          seen_date: string | null
+          updated_at: string
+          user_id: string
+          word_id: string
+        }
+        Insert: {
+          correct_count?: number
+          created_at?: string
+          id?: string
+          incorrect_count?: number
+          last_reviewed?: string | null
+          seen?: boolean
+          seen_date?: string | null
+          updated_at?: string
+          user_id: string
+          word_id: string
+        }
+        Update: {
+          correct_count?: number
+          created_at?: string
+          id?: string
+          incorrect_count?: number
+          last_reviewed?: string | null
+          seen?: boolean
+          seen_date?: string | null
+          updated_at?: string
+          user_id?: string
+          word_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_progress_word_id_fkey"
+            columns: ["word_id"]
+            isOneToOne: false
+            referencedRelation: "words"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          id: string
+          last_active_date: string | null
+          total_words_seen: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_active_date?: string | null
+          total_words_seen?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_active_date?: string | null
+          total_words_seen?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       words: {
         Row: {
           category: string
