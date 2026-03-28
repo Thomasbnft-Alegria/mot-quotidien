@@ -132,6 +132,45 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── SHUFFLE UNSHOWN ───────────────────────────────────────────
+    if (action === "shuffle_unshown") {
+      // Get all unshown words
+      const { data: unshown, error: fetchErr } = await supabase
+        .from("words")
+        .select("id, display_order")
+        .is("date_shown", null)
+        .order("display_order", { ascending: true });
+
+      if (fetchErr) throw fetchErr;
+      if (!unshown || unshown.length === 0) {
+        return new Response(
+          JSON.stringify({ success: true, shuffled: 0 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Collect their display_order values and shuffle them
+      const orders = unshown.map(w => w.display_order);
+      for (let i = orders.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [orders[i], orders[j]] = [orders[j], orders[i]];
+      }
+
+      // Reassign shuffled orders — use a temp offset to avoid unique conflicts
+      const offset = 100000;
+      for (let i = 0; i < unshown.length; i++) {
+        await supabase.from("words").update({ display_order: offset + i }).eq("id", unshown[i].id);
+      }
+      for (let i = 0; i < unshown.length; i++) {
+        await supabase.from("words").update({ display_order: orders[i] }).eq("id", unshown[i].id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, shuffled: unshown.length }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: false, error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
