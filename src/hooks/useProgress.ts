@@ -163,17 +163,23 @@ export function useProgress() {
     const seenWords = allWords.filter(w => wordProgress[w.id]?.seen);
     if (seenWords.length === 0) return [];
 
-    const sorted = seenWords.sort((a, b) => {
-      const progressA = wordProgress[a.id];
-      const progressB = wordProgress[b.id];
-      const errorDiff = (progressB?.incorrectCount || 0) - (progressA?.incorrectCount || 0);
-      if (errorDiff !== 0) return errorDiff;
-      const lastA = progressA?.lastReviewed ? parseISO(progressA.lastReviewed).getTime() : 0;
-      const lastB = progressB?.lastReviewed ? parseISO(progressB.lastReviewed).getTime() : 0;
-      return lastA - lastB;
+    // Assign a priority score to each word:
+    // higher incorrectCount = higher priority, older lastReviewed = higher priority
+    // Then add randomness so the same 5 words don't always appear
+    const now = Date.now();
+    const scored = seenWords.map(w => {
+      const p = wordProgress[w.id];
+      const incorrectCount = p?.incorrectCount || 0;
+      const lastReviewed = p?.lastReviewed ? parseISO(p.lastReviewed).getTime() : 0;
+      const daysSinceReview = (now - lastReviewed) / (1000 * 60 * 60 * 24);
+      // Score: errors weighted heavily + time since review + random noise for variety
+      const score = incorrectCount * 10 + daysSinceReview + Math.random() * 2;
+      return { word: w, score };
     });
 
-    return sorted.slice(0, Math.min(count, sorted.length));
+    // Sort by score descending (highest priority first), pick top `count`
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, Math.min(count, scored.length)).map(s => s.word);
   }, [wordProgress]);
 
   const getWeeklyWords = useCallback((allWords: Word[]) => {
