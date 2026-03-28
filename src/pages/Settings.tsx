@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2, LogOut } from 'lucide-react';
+import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2, LogOut, KeyRound } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { TimePicker } from '@/components/TimePicker';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
@@ -26,6 +28,26 @@ export default function Settings() {
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error('Le mot de passe doit faire au moins 6 caractères');
+      return;
+    }
+    setIsChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast.error('Erreur : ' + error.message);
+    } else {
+      toast.success('Mot de passe mis à jour !');
+      setNewPassword('');
+      setShowPasswordForm(false);
+    }
+    setIsChangingPassword(false);
+  };
 
   const handleTestNotification = async () => {
     setIsTesting(true);
@@ -263,6 +285,36 @@ export default function Settings() {
             </Card>
           </motion.div>
         )}
+        {/* Change Password */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mt-6">
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-muted-foreground" />
+                  <p className="font-medium text-foreground">Mot de passe</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setShowPasswordForm(!showPasswordForm)}>
+                  {showPasswordForm ? 'Annuler' : 'Modifier'}
+                </Button>
+              </div>
+              {showPasswordForm && (
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="Nouveau mot de passe"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                  />
+                  <Button onClick={handleChangePassword} disabled={isChangingPassword}>
+                    {isChangingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : 'OK'}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
         {/* Logout */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
