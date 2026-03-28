@@ -29,6 +29,18 @@ export function useServiceWorker() {
           window.location.reload();
         }
       });
+
+      // Fallback for iOS Safari PWA: listen for controllerchange
+      // This fires when the new SW takes control, even if the app was closed
+      // during the update (postMessage would have been missed in that case)
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          console.log('[SW] Controller changed, reloading...');
+          window.location.reload();
+        }
+      });
     }
   }, []);
 
