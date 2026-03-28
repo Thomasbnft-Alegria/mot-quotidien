@@ -20,6 +20,15 @@ export function useServiceWorker() {
         .catch((error) => {
           console.error('Service Worker registration failed:', error);
         });
+
+      // Listen for SW_UPDATED message from the new service worker
+      // and reload the page automatically to pick up the new version
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'SW_UPDATED') {
+          console.log('[SW] New version activated, reloading...');
+          window.location.reload();
+        }
+      });
     }
   }, []);
 
