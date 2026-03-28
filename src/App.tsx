@@ -59,7 +59,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter basename="/mot-quotidien">
           <AuthProvider>
             <AppRoutes />
           </AuthProvider>
