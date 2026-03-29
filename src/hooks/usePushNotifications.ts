@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -18,27 +18,27 @@ export function usePushNotifications() {
   const [isLoading, setIsLoading] = useState(false);
   const [preferredTime, setPreferredTime] = useState('12:30');
 
+  // Use a ref so async functions always see the latest preferredTime
+  const preferredTimeRef = useRef('12:30');
+  preferredTimeRef.current = preferredTime;
+
   useEffect(() => {
-    // Check if notifications are supported
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
       setPermissionStatus('unsupported');
       return;
     }
 
-    // Check current permission status
     setPermissionStatus(Notification.permission as PermissionStatus);
-    
-    // Check if we've already asked
+
     const asked = localStorage.getItem(NOTIFICATION_ASKED_KEY);
     setHasBeenAsked(asked === 'true');
 
-    // Load preferred time from localStorage
     const storedTime = localStorage.getItem(PREFERRED_TIME_KEY);
     if (storedTime) {
       setPreferredTime(storedTime);
+      preferredTimeRef.current = storedTime;
     }
 
-    // Check if already subscribed
     const storedEndpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
     if (storedEndpoint && Notification.permission === 'granted') {
       checkSubscriptionStatus(storedEndpoint);
@@ -52,13 +52,13 @@ export function usePushNotifications() {
         .select('enabled, preferred_time')
         .eq('endpoint', endpoint)
         .single();
-      
+
       if (data) {
         setIsSubscribed(data.enabled);
         if (data.preferred_time) {
-          // Convert "HH:MM:SS" to "HH:MM"
           const time = data.preferred_time.substring(0, 5);
           setPreferredTime(time);
+          preferredTimeRef.current = time;
           localStorage.setItem(PREFERRED_TIME_KEY, time);
         }
       } else {
@@ -71,10 +71,79 @@ export function usePushNotifications() {
     }
   };
 
-  const requestPermission = useCallback(async (): Promise<boolean> => {
-    if (!('Notification' in window)) {
-      return false;
+  // Returns a valid ServiceWorkerRegistration or throws with a clear message
+  const getSwRegistration = async (): Promise<ServiceWorkerRegistration> => {
+    return Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Service Worker non disponible (timeout 8s)')), 8000)
+      ),
+    ]) as Promise<ServiceWorkerRegistration>;
+  };
+
+  // Obtains (or renews) a push subscription and saves it to Supabase
+  const subscribeToPush = async (): Promise<void> => {
+    console.log('[Push] subscribeToPush start');
+    const registration = await getSwRegistration();
+    console.log('[Push] SW ready');
+
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      console.log('[Push] No existing subscription, subscribing...');
+      try {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        console.log('[Push] New subscription created');
+      } catch (err) {
+        // Push API not available in this context (HTTP, old iOS, etc.) → use local fallback
+        console.warn('[Push] pushManager.subscribe failed, using local fallback:', err);
+        const fallback = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        await saveSubscription(fallback, 'demo-key', 'demo-auth');
+        return;
+      }
+    } else {
+      console.log('[Push] Reusing existing subscription');
     }
+
+    const key = subscription.getKey('p256dh');
+    const auth = subscription.getKey('auth');
+    const p256dh = key ? btoa(String.fromCharCode(...new Uint8Array(key))) : '';
+    const authKey = auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : '';
+
+    await saveSubscription(subscription.endpoint, p256dh, authKey);
+  };
+
+  const saveSubscription = async (endpoint: string, p256dh: string, auth: string): Promise<void> => {
+    const timeForDb = `${preferredTimeRef.current}:00`;
+
+    const { data: existing } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('endpoint', endpoint)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from('push_subscriptions')
+        .update({ p256dh, auth, enabled: true, preferred_time: timeForDb })
+        .eq('endpoint', endpoint);
+      console.log('[Push] Updated existing subscription in DB');
+    } else {
+      await supabase
+        .from('push_subscriptions')
+        .insert({ endpoint, p256dh, auth, enabled: true, preferred_time: timeForDb });
+      console.log('[Push] Inserted new subscription in DB');
+    }
+
+    localStorage.setItem(SUBSCRIPTION_ENDPOINT_KEY, endpoint);
+    setIsSubscribed(true);
+  };
+
+  const requestPermission = async (): Promise<boolean> => {
+    if (!('Notification' in window)) return false;
 
     setIsLoading(true);
     localStorage.setItem(NOTIFICATION_ASKED_KEY, 'true');
@@ -90,120 +159,20 @@ export function usePushNotifications() {
       }
       return false;
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
-      toast.error(`Erreur permission : ${error instanceof Error ? error.message : String(error)}`);
+      console.error('[Push] requestPermission error:', error);
+      toast.error(`Erreur : ${error instanceof Error ? error.message : String(error)}`);
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  const subscribeToPush = async () => {
-    try {
-      console.log('[Push] Starting subscription process...');
-      // Timeout on serviceWorker.ready to avoid hanging indefinitely (e.g. after SW update)
-      const registration = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Service Worker not ready after 8s')), 8000)
-        )
-      ]) as ServiceWorkerRegistration;
-      console.log('[Push] Service worker ready');
-      
-      let subscription = await (registration as any).pushManager.getSubscription();
-      console.log('[Push] Existing subscription:', subscription ? 'yes' : 'no');
-      
-      if (!subscription && VAPID_PUBLIC_KEY) {
-        try {
-          console.log('[Push] Subscribing with VAPID key...');
-          subscription = await (registration as any).pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-          });
-          console.log('[Push] Subscription created:', subscription.endpoint.substring(0, 50) + '...');
-        } catch (pushError) {
-          console.error('[Push] Push subscription failed:', pushError);
-          const mockSubscription = {
-            endpoint: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            p256dh: 'demo-key',
-            auth: 'demo-auth'
-          };
-          await saveSubscription(mockSubscription.endpoint, mockSubscription.p256dh, mockSubscription.auth);
-          return;
-        }
-      } else if (!subscription) {
-        console.log('[Push] No VAPID key, using local subscription');
-        const mockSubscription = {
-          endpoint: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          p256dh: 'demo-key',
-          auth: 'demo-auth'
-        };
-        await saveSubscription(mockSubscription.endpoint, mockSubscription.p256dh, mockSubscription.auth);
-        return;
-      }
-
-      if (subscription) {
-        const key = subscription.getKey('p256dh');
-        const auth = subscription.getKey('auth');
-        
-        const p256dh = key ? btoa(String.fromCharCode(...new Uint8Array(key))) : '';
-        const authKey = auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : '';
-        
-        console.log('[Push] Saving subscription to database...');
-        await saveSubscription(subscription.endpoint, p256dh, authKey);
-      }
-    } catch (error) {
-      console.error('[Push] Error subscribing to push:', error);
-      toast.error(`Erreur activation : ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
   };
 
-  const saveSubscription = async (endpoint: string, p256dh: string, auth: string) => {
-    try {
-      const { data: existing } = await supabase
-        .from('push_subscriptions')
-        .select('id')
-        .eq('endpoint', endpoint)
-        .single();
-
-      const timeForDb = `${preferredTime}:00`;
-
-      if (existing) {
-        await supabase
-          .from('push_subscriptions')
-          .update({ p256dh, auth, enabled: true, preferred_time: timeForDb })
-          .eq('endpoint', endpoint);
-        console.log('[Push] Updated existing subscription');
-      } else {
-        await supabase
-          .from('push_subscriptions')
-          .insert({ endpoint, p256dh, auth, enabled: true, preferred_time: timeForDb });
-        console.log('[Push] Inserted new subscription');
-      }
-
-      localStorage.setItem(SUBSCRIPTION_ENDPOINT_KEY, endpoint);
-      setIsSubscribed(true);
-    } catch (error) {
-      console.error('[Push] Error saving subscription:', error);
-    }
-  };
-
-  const toggleNotifications = useCallback(async (enabled: boolean) => {
+  const toggleNotifications = async (enabled: boolean): Promise<void> => {
     setIsLoading(true);
-    
     try {
       if (enabled) {
-        const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
-        if (!endpoint) {
-          await subscribeToPush();
-        } else {
-          await supabase
-            .from('push_subscriptions')
-            .update({ enabled: true })
-            .eq('endpoint', endpoint);
-          setIsSubscribed(true);
-        }
+        // Always go through the full subscribe flow to ensure the subscription is fresh
+        await subscribeToPush();
       } else {
         const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
         if (endpoint) {
@@ -215,72 +184,63 @@ export function usePushNotifications() {
         setIsSubscribed(false);
       }
     } catch (error) {
-      console.error('[Push] Error toggling notifications:', error);
+      console.error('[Push] toggleNotifications error:', error);
       toast.error(`Erreur : ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const updatePreferredTime = useCallback(async (time: string): Promise<boolean> => {
+  const updatePreferredTime = async (time: string): Promise<boolean> => {
     setIsLoading(true);
-    
     try {
       const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
       if (!endpoint) {
-        console.error('[Push] No endpoint stored, cannot update preferred time');
+        toast.error('Aucune souscription active — active les notifications d\'abord');
         return false;
       }
 
-      const timeForDb = `${time}:00`;
-      
       const { error } = await supabase
         .from('push_subscriptions')
-        .update({ preferred_time: timeForDb })
+        .update({ preferred_time: `${time}:00` })
         .eq('endpoint', endpoint);
 
-      if (error) {
-        console.error('[Push] Error updating preferred time:', error);
-        return false;
-      }
+      if (error) throw error;
 
       setPreferredTime(time);
+      preferredTimeRef.current = time;
       localStorage.setItem(PREFERRED_TIME_KEY, time);
       console.log('[Push] Preferred time updated to:', time);
       return true;
     } catch (error) {
-      console.error('[Push] Error updating preferred time:', error);
+      console.error('[Push] updatePreferredTime error:', error);
+      toast.error(`Erreur : ${error instanceof Error ? error.message : String(error)}`);
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const sendTestNotification = useCallback(async (): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> => {
-    console.log('[Notification] sendTestNotification called');
-    
+  const sendTestNotification = async (): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> => {
     const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
-    console.log('[Notification] Stored endpoint:', endpoint ? endpoint.substring(0, 30) + '...' : 'none');
+    console.log('[Push] sendTestNotification, endpoint:', endpoint ? endpoint.substring(0, 40) + '...' : 'none');
 
     try {
-      console.log('[Notification] Calling edge function...');
       const { data, error } = await supabase.functions.invoke('send-daily-notification', {
-        body: { endpoint, test: true }
+        body: { endpoint, test: true },
       });
 
-      console.log('[Notification] Edge function response:', data, error);
-
       if (error) {
-        console.error('[Notification] Edge function error:', error);
+        console.error('[Push] Edge function error:', error);
         return { success: false, error: error.message || String(error) };
       }
 
       return { success: true, data };
     } catch (err) {
-      console.error('[Notification] Failed to call edge function:', err);
+      console.error('[Push] sendTestNotification error:', err);
       return { success: false, error: String(err) };
     }
-  }, []);
+  };
 
   const shouldShowPrompt = !hasBeenAsked && permissionStatus === 'default';
 
@@ -293,7 +253,7 @@ export function usePushNotifications() {
     requestPermission,
     toggleNotifications,
     sendTestNotification,
-    updatePreferredTime
+    updatePreferredTime,
   };
 }
 
