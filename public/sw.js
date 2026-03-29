@@ -34,21 +34,38 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Never cache dev/build tool assets or JS/CSS chunks.
-  // Caching these can serve stale React bundles and cause hook dispatcher errors.
   const isSameOrigin = url.origin === self.location.origin;
   const isViteAsset = url.pathname.startsWith('/@') || url.pathname.includes('/node_modules/.vite/');
   const isSourceAsset = url.pathname.startsWith('/src/');
   const isChunkLike = url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.map');
 
+  // Never cache dev/build assets or JS/CSS chunks — always go to network.
   if (!isSameOrigin || isViteAsset || isSourceAsset || isChunkLike) {
-    return; // Let the request go to the network normally.
+    return;
   }
 
+  // Network-first for HTML documents: always fetch fresh, fall back to cache.
+  // This ensures a new deployment is picked up without uninstalling the PWA.
+  if (event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets (icons, manifest, etc.)
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -56,23 +73,13 @@ self.addEventListener('fetch', (event) => {
           return response;
         }
         return fetch(event.request).then((response) => {
-          // Don't cache non-successful responses or non-GET requests
           if (!response || response.status !== 200 || event.request.method !== 'GET') {
             return response;
           }
-
-          // Only runtime-cache a small allowlist of safe, same-origin assets.
-          const shouldRuntimeCache = urlsToCache.includes(url.pathname) || event.request.destination === 'document';
-          if (!shouldRuntimeCache) {
-            return response;
+          if (urlsToCache.includes(url.pathname)) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
           }
-
-          // Clone the response
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
           return response;
         });
       })
