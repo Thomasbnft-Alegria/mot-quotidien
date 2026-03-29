@@ -110,19 +110,19 @@ export default function Quiz() {
     const hasWords = availableQuizWords.length > 0;
 
     return (
-      <div className="min-h-screen bg-background pb-24">
-        <div className="max-w-lg mx-auto px-6 py-8">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-lg mx-auto px-4 py-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Brain className="w-10 h-10 text-primary" />
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Brain className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-4">Quiz de révision</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-3">Quiz de révision</h1>
             {hasWords ? (
               <>
-                <p className="text-muted-foreground mb-8">
+                <p className="text-muted-foreground mb-6">
                   Révisez vos mots avec un quiz de {Math.min(5, availableQuizWords.length)} question{availableQuizWords.length > 1 ? 's' : ''}.
                 </p>
-                <Button size="lg" onClick={startQuiz} className="h-14 px-8 text-lg">Commencer le quiz</Button>
+                <Button size="lg" onClick={startQuiz} className="h-12 px-8 text-lg">Commencer le quiz</Button>
               </>
             ) : (
               <div className="space-y-4">
@@ -144,15 +144,15 @@ export default function Quiz() {
   if (isQuizComplete) {
     const percentage = Math.round((correctCount / quizWords.length) * 100);
     return (
-      <div className="min-h-screen bg-background pb-24">
-        <div className="max-w-lg mx-auto px-6 py-8">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-lg mx-auto px-4 py-6">
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
-            <div className={cn("w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6", percentage >= 80 ? "bg-success/10" : percentage >= 50 ? "bg-primary/10" : "bg-destructive/10")}>
-              <span className="text-4xl font-bold text-foreground">{percentage}%</span>
+            <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4", percentage >= 80 ? "bg-success/10" : percentage >= 50 ? "bg-primary/10" : "bg-destructive/10")}>
+              <span className="text-3xl font-bold text-foreground">{percentage}%</span>
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-2">Quiz terminé !</h1>
-            <p className="text-muted-foreground mb-6">{correctCount} bonne{correctCount > 1 ? 's' : ''} réponse{correctCount > 1 ? 's' : ''} sur {quizWords.length}</p>
-            <div className="space-y-3 mb-8">
+            <p className="text-muted-foreground mb-4">{correctCount} bonne{correctCount > 1 ? 's' : ''} réponse{correctCount > 1 ? 's' : ''} sur {quizWords.length}</p>
+            <div className="space-y-2 mb-6">
               {results.map((result, idx) => {
                 const word = quizWords[idx];
                 return (
@@ -163,7 +163,7 @@ export default function Quiz() {
                 );
               })}
             </div>
-            <Button size="lg" onClick={startQuiz} className="h-14 px-8 text-lg">Recommencer</Button>
+            <Button size="lg" onClick={startQuiz} className="h-12 px-8 text-lg">Recommencer</Button>
           </motion.div>
         </div>
         <BottomNav />
@@ -172,9 +172,9 @@ export default function Quiz() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-lg mx-auto px-6 py-8">
-        <div className="mb-8">
+    <div className="min-h-screen bg-background pb-20">
+      <div className="max-w-lg mx-auto px-4 py-4">
+        <div className="mb-4">
           <div className="flex justify-between text-sm text-muted-foreground mb-2">
             <span>Question {currentIndex + 1}/{quizWords.length}</span>
             <span>{Math.round(progress)}%</span>
@@ -184,15 +184,15 @@ export default function Quiz() {
 
         <AnimatePresence mode="wait">
           <motion.div key={currentIndex} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>
-            <Card className="border-0 shadow-lg mb-6">
-              <CardContent className="p-6">
+            <Card className="border-0 shadow-lg mb-4">
+              <CardContent className="p-5">
                 <div className="flex justify-center mb-4"><CategoryBadge category={currentWord.category} /></div>
                 <h2 className="text-3xl font-bold text-center text-foreground">{currentWord.word}</h2>
                 <p className="text-center text-sm text-muted-foreground mt-2">Quelle est la définition ?</p>
               </CardContent>
             </Card>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {answerChoices.map((choice) => {
                 const isSelected = selectedAnswer === choice.id;
                 const showCorrect = showResult && choice.isCorrect;
@@ -203,7 +203,7 @@ export default function Quiz() {
                     onClick={() => handleAnswer(choice.id, choice.isCorrect)}
                     disabled={showResult}
                     className={cn(
-                      "w-full p-4 text-left rounded-xl border-2 transition-all",
+                      "w-full p-3 text-left rounded-xl border-2 transition-all",
                       !showResult && "hover:border-primary hover:bg-accent/50",
                       !showResult && !isSelected && "border-border bg-card",
                       showCorrect && "border-success bg-success/10",
@@ -230,8 +230,8 @@ export default function Quiz() {
             </div>
 
             {showResult && !isQuizComplete && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
-                <Button size="lg" onClick={handleNext} className="w-full h-14 text-lg gap-2">
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-4">
+                <Button size="lg" onClick={handleNext} className="w-full h-12 text-lg gap-2">
                   Question suivante
                   <ArrowRight className="w-5 h-5" />
                 </Button>
