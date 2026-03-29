@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 const NOTIFICATION_ASKED_KEY = 'notification_permission_asked';
@@ -90,6 +91,7 @@ export function usePushNotifications() {
       return false;
     } catch (error) {
       console.error('Error requesting notification permission:', error);
+      toast.error(`Erreur permission : ${error instanceof Error ? error.message : String(error)}`);
       return false;
     } finally {
       setIsLoading(false);
@@ -99,7 +101,13 @@ export function usePushNotifications() {
   const subscribeToPush = async () => {
     try {
       console.log('[Push] Starting subscription process...');
-      const registration = await navigator.serviceWorker.ready;
+      // Timeout on serviceWorker.ready to avoid hanging indefinitely (e.g. after SW update)
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Service Worker not ready after 8s')), 8000)
+        )
+      ]) as ServiceWorkerRegistration;
       console.log('[Push] Service worker ready');
       
       let subscription = await (registration as any).pushManager.getSubscription();
@@ -146,6 +154,8 @@ export function usePushNotifications() {
       }
     } catch (error) {
       console.error('[Push] Error subscribing to push:', error);
+      toast.error(`Erreur activation : ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     }
   };
 
@@ -206,6 +216,7 @@ export function usePushNotifications() {
       }
     } catch (error) {
       console.error('[Push] Error toggling notifications:', error);
+      toast.error(`Erreur : ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
