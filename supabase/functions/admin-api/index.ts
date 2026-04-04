@@ -171,6 +171,38 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── RUN SQL (admin-only, temporary migration helper) ──────────
+    if (action === "run_sql") {
+      const { sql } = body;
+      if (!sql) {
+        return new Response(
+          JSON.stringify({ success: false, error: "sql is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const dbUrl = Deno.env.get("SUPABASE_DB_URL");
+      if (!dbUrl) {
+        return new Response(
+          JSON.stringify({ success: false, error: "SUPABASE_DB_URL not available" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const { Client } = await import("https://deno.land/x/postgres@v0.17.0/mod.ts");
+      const client = new Client(dbUrl);
+      await client.connect();
+      try {
+        const result = await client.queryArray(sql);
+        await client.end();
+        return new Response(
+          JSON.stringify({ success: true, rows: result.rows, rowCount: result.rowCount }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (err) {
+        await client.end();
+        throw err;
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: false, error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
