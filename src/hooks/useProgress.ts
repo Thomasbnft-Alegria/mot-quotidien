@@ -199,19 +199,38 @@ export function useProgress() {
 
   const [weeklyReviewStatus, setWeeklyReviewStatus] = useState<{ completed: boolean; score: number }>({ completed: false, score: 0 });
 
-  // Load weekly review status from Supabase
+  // Load weekly review status — Supabase first, localStorage fallback
   useEffect(() => {
     if (!user) return;
     const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const lsKey = `weekly_review_${user.id}_${weekStart}`;
+
     supabase
       .from('weekly_reviews')
       .select('score')
       .eq('user_id', user.id)
       .eq('week_start', weekStart)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          // Table doesn't exist yet — fall back to localStorage
+          const stored = localStorage.getItem(lsKey);
+          if (stored) {
+            const parsed = JSON.parse(stored) as { completed: boolean; score: number };
+            setWeeklyReviewStatus(parsed);
+          }
+          return;
+        }
         if (data) {
           setWeeklyReviewStatus({ completed: true, score: data.score });
+          // Sync to localStorage as cache
+          localStorage.setItem(lsKey, JSON.stringify({ completed: true, score: data.score }));
+        } else {
+          // No Supabase record — check localStorage cache
+          const stored = localStorage.getItem(lsKey);
+          if (stored) {
+            setWeeklyReviewStatus(JSON.parse(stored));
+          }
         }
       });
   }, [user]);
@@ -221,13 +240,21 @@ export function useProgress() {
   const recordWeeklyReviewCompletion = useCallback(async (score: number) => {
     if (!user) return;
     const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    await supabase.from('weekly_reviews').upsert({
+    const lsKey = `weekly_review_${user.id}_${weekStart}`;
+
+    // Always write to localStorage immediately (instant UI)
+    localStorage.setItem(lsKey, JSON.stringify({ completed: true, score }));
+    setWeeklyReviewStatus({ completed: true, score });
+
+    // Try Supabase — silently ignore if table doesn't exist yet
+    supabase.from('weekly_reviews').upsert({
       user_id: user.id,
       week_start: weekStart,
       score,
       completed_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,week_start' });
-    setWeeklyReviewStatus({ completed: true, score });
+    }, { onConflict: 'user_id,week_start' }).then(({ error }) => {
+      if (error) console.warn('weekly_reviews table not ready yet, using localStorage fallback');
+    });
   }, [user]);
 
   const getMasteredCount = useCallback(() => {
