@@ -47,6 +47,33 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_reviews: {
+        Row: {
+          id: string
+          user_id: string
+          week_start: string
+          score: number
+          completed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          week_start: string
+          score: number
+          completed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          week_start?: string
+          score?: number
+          completed_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       user_progress: {
         Row: {
           correct_count: number

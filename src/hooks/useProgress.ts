@@ -197,23 +197,37 @@ export function useProgress() {
 
   const isWeeklyReviewAvailable = useCallback(() => true, []);
 
-  const getWeekStartKey = () => {
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    return format(weekStart, 'yyyy-MM-dd');
-  };
+  const [weeklyReviewStatus, setWeeklyReviewStatus] = useState<{ completed: boolean; score: number }>({ completed: false, score: 0 });
 
-  const getWeeklyReviewStatus = useCallback((): { completed: boolean; score: number } => {
-    if (!user) return { completed: false, score: 0 };
-    const key = `weekly_review_${user.id}_${getWeekStartKey()}`;
-    const stored = localStorage.getItem(key);
-    if (!stored) return { completed: false, score: 0 };
-    return JSON.parse(stored) as { completed: boolean; score: number };
+  // Load weekly review status from Supabase
+  useEffect(() => {
+    if (!user) return;
+    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    supabase
+      .from('weekly_reviews')
+      .select('score')
+      .eq('user_id', user.id)
+      .eq('week_start', weekStart)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setWeeklyReviewStatus({ completed: true, score: data.score });
+        }
+      });
   }, [user]);
 
-  const recordWeeklyReviewCompletion = useCallback((score: number) => {
+  const getWeeklyReviewStatus = useCallback(() => weeklyReviewStatus, [weeklyReviewStatus]);
+
+  const recordWeeklyReviewCompletion = useCallback(async (score: number) => {
     if (!user) return;
-    const key = `weekly_review_${user.id}_${getWeekStartKey()}`;
-    localStorage.setItem(key, JSON.stringify({ completed: true, score }));
+    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    await supabase.from('weekly_reviews').upsert({
+      user_id: user.id,
+      week_start: weekStart,
+      score,
+      completed_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,week_start' });
+    setWeeklyReviewStatus({ completed: true, score });
   }, [user]);
 
   const getMasteredCount = useCallback(() => {
