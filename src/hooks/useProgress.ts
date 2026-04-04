@@ -195,7 +195,26 @@ export function useProgress() {
     });
   }, [wordProgress]);
 
-  const isWeeklyReviewAvailable = useCallback(() => isSunday(new Date()), []);
+  const isWeeklyReviewAvailable = useCallback(() => true, []);
+
+  const getWeekStartKey = () => {
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return format(weekStart, 'yyyy-MM-dd');
+  };
+
+  const getWeeklyReviewStatus = useCallback((): { completed: boolean; score: number } => {
+    if (!user) return { completed: false, score: 0 };
+    const key = `weekly_review_${user.id}_${getWeekStartKey()}`;
+    const stored = localStorage.getItem(key);
+    if (!stored) return { completed: false, score: 0 };
+    return JSON.parse(stored) as { completed: boolean; score: number };
+  }, [user]);
+
+  const recordWeeklyReviewCompletion = useCallback((score: number) => {
+    if (!user) return;
+    const key = `weekly_review_${user.id}_${getWeekStartKey()}`;
+    localStorage.setItem(key, JSON.stringify({ completed: true, score }));
+  }, [user]);
 
   const getMasteredCount = useCallback(() => {
     return Object.values(wordProgress).filter(p =>
@@ -212,6 +231,8 @@ export function useProgress() {
     getQuizWords,
     getWeeklyWords,
     isWeeklyReviewAvailable,
+    getWeeklyReviewStatus,
+    recordWeeklyReviewCompletion,
     getMasteredCount,
     isWordSeen,
   };

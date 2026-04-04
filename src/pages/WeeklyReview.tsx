@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useProgress } from '@/hooks/useProgress';
 import { useQuizWords } from '@/hooks/useQuizWords';
 import { Word } from '@/types/word';
-import { Calendar, Lock, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Calendar, Trophy, CheckCircle, XCircle, Eye, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ReviewResult {
@@ -18,15 +18,27 @@ interface ReviewResult {
 
 export default function WeeklyReview() {
   const { allWords, isLoading: wordsLoading } = useQuizWords();
-  const { getWeeklyWords, isWeeklyReviewAvailable, recordQuizAnswer, isLoaded } = useProgress();
+  const {
+    getWeeklyWords,
+    getWeeklyReviewStatus,
+    recordWeeklyReviewCompletion,
+    recordQuizAnswer,
+    isLoaded,
+  } = useProgress();
+
   const [reviewStarted, setReviewStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [showDefinition, setShowDefinition] = useState(false);
   const [weeklyWords, setWeeklyWords] = useState<Word[]>([]);
   const [results, setResults] = useState<ReviewResult[]>([]);
+  const [weeklyStatus, setWeeklyStatus] = useState<{ completed: boolean; score: number }>({ completed: false, score: 0 });
 
-  const isSunday = isWeeklyReviewAvailable();
+  useEffect(() => {
+    if (isLoaded) {
+      setWeeklyStatus(getWeeklyReviewStatus());
+    }
+  }, [isLoaded, getWeeklyReviewStatus]);
 
   const startReview = useCallback(() => {
     const words = getWeeklyWords(allWords);
@@ -48,7 +60,8 @@ export default function WeeklyReview() {
 
   const handleSelfAssess = (knew: boolean) => {
     recordQuizAnswer(currentWord.id, knew);
-    setResults(prev => [...prev, { wordId: currentWord.id, knew }]);
+    const newResults = [...results, { wordId: currentWord.id, knew }];
+    setResults(newResults);
 
     if (currentIndex < weeklyWords.length - 1) {
       setCurrentIndex(prev => prev + 1);
@@ -60,6 +73,15 @@ export default function WeeklyReview() {
   const isReviewComplete = results.length === weeklyWords.length && weeklyWords.length > 0;
   const knewCount = results.filter(r => r.knew).length;
 
+  // Save completion when review finishes
+  useEffect(() => {
+    if (isReviewComplete && weeklyWords.length > 0) {
+      const percentage = Math.round((knewCount / weeklyWords.length) * 100);
+      recordWeeklyReviewCompletion(percentage);
+      setWeeklyStatus({ completed: true, score: percentage });
+    }
+  }, [isReviewComplete]);
+
   if (!isLoaded || wordsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pb-20">
@@ -68,8 +90,8 @@ export default function WeeklyReview() {
     );
   }
 
-  // Not Sunday - show locked state
-  if (!isSunday) {
+  // Already done this week with 100% — locked
+  if (weeklyStatus.completed && weeklyStatus.score === 100 && !reviewStarted) {
     return (
       <div className="min-h-screen bg-background pb-24">
         <div className="max-w-lg mx-auto px-6 py-8">
@@ -78,14 +100,14 @@ export default function WeeklyReview() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center"
           >
-            <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
-              <Lock className="w-10 h-10 text-muted-foreground" />
+            <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trophy className="w-10 h-10 text-yellow-500" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-4">Révision hebdomadaire</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-4">Semaine parfaite !</h1>
             <p className="text-muted-foreground">
-              La révision hebdomadaire est disponible uniquement le dimanche.
+              Tu as obtenu 100% à la révision de cette semaine.
               <br /><br />
-              Revenez dimanche pour réviser tous les mots de la semaine !
+              Reviens lundi pour de nouveaux mots à réviser !
             </p>
           </motion.div>
         </div>
@@ -94,10 +116,11 @@ export default function WeeklyReview() {
     );
   }
 
-  // Sunday but review not started
+  // Not started yet (or can retry because score < 100%)
   if (!reviewStarted) {
     const availableWords = getWeeklyWords(allWords);
     const hasWords = availableWords.length > 0;
+    const isRetry = weeklyStatus.completed && weeklyStatus.score < 100;
 
     return (
       <div className="min-h-screen bg-background pb-24">
@@ -111,21 +134,27 @@ export default function WeeklyReview() {
               <Calendar className="w-10 h-10 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-4">Révision hebdomadaire</h1>
-            
+
             {hasWords ? (
               <>
+                {isRetry && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Dernier score : <span className="font-semibold text-foreground">{weeklyStatus.score}%</span> — tu peux réessayer !
+                  </p>
+                )}
                 <p className="text-muted-foreground mb-8">
                   Révisez les {availableWords.length} mot{availableWords.length > 1 ? 's' : ''} découvert{availableWords.length > 1 ? 's' : ''} cette semaine.
                   Écrivez votre définition, puis vérifiez !
                 </p>
-                <Button size="lg" onClick={startReview} className="h-14 px-8 text-lg">
-                  Commencer la révision
+                <Button size="lg" onClick={startReview} className="h-14 px-8 text-lg gap-2">
+                  {isRetry && <RefreshCw className="w-5 h-5" />}
+                  {isRetry ? 'Réessayer' : 'Commencer la révision'}
                 </Button>
               </>
             ) : (
               <p className="text-muted-foreground">
                 Aucun mot découvert cette semaine.<br />
-                Découvrez des mots du jour pour les réviser dimanche !
+                Découvrez des mots du jour pour les réviser !
               </p>
             )}
           </motion.div>
@@ -138,6 +167,7 @@ export default function WeeklyReview() {
   // Review complete
   if (isReviewComplete) {
     const percentage = Math.round((knewCount / weeklyWords.length) * 100);
+    const isPerfect = percentage === 100;
 
     return (
       <div className="min-h-screen bg-background pb-24">
@@ -149,14 +179,22 @@ export default function WeeklyReview() {
           >
             <div className={cn(
               "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6",
-              percentage >= 80 ? "bg-success/10" : percentage >= 50 ? "bg-primary/10" : "bg-destructive/10"
+              isPerfect ? "bg-yellow-100" : percentage >= 80 ? "bg-success/10" : percentage >= 50 ? "bg-primary/10" : "bg-destructive/10"
             )}>
-              <span className="text-4xl font-bold text-foreground">{percentage}%</span>
+              {isPerfect
+                ? <Trophy className="w-10 h-10 text-yellow-500" />
+                : <span className="text-4xl font-bold text-foreground">{percentage}%</span>
+              }
             </div>
-            
-            <h1 className="text-2xl font-bold text-foreground mb-2">Révision terminée !</h1>
+
+            <h1 className="text-2xl font-bold text-foreground mb-2">
+              {isPerfect ? 'Parfait ! 🎉' : 'Révision terminée !'}
+            </h1>
             <p className="text-muted-foreground mb-6">
-              Vous connaissiez {knewCount} mot{knewCount > 1 ? 's' : ''} sur {weeklyWords.length}
+              {isPerfect
+                ? 'Tu connaissais tous les mots. Bravo !'
+                : `Tu connaissais ${knewCount} mot${knewCount > 1 ? 's' : ''} sur ${weeklyWords.length}`
+              }
             </p>
 
             <div className="space-y-3 mb-8">
@@ -181,9 +219,12 @@ export default function WeeklyReview() {
               })}
             </div>
 
-            <Button size="lg" onClick={startReview} className="h-14 px-8 text-lg">
-              Recommencer
-            </Button>
+            {!isPerfect && (
+              <Button size="lg" onClick={startReview} className="h-14 px-8 text-lg gap-2">
+                <RefreshCw className="w-5 h-5" />
+                Réessayer
+              </Button>
+            )}
           </motion.div>
         </div>
         <BottomNav />
@@ -191,6 +232,7 @@ export default function WeeklyReview() {
     );
   }
 
+  // Quiz in progress
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-6 py-8">
@@ -218,7 +260,7 @@ export default function WeeklyReview() {
                 <h2 className="text-3xl font-bold text-center text-foreground mb-4">
                   {currentWord.word}
                 </h2>
-                
+
                 {/* User's answer area */}
                 <Textarea
                   placeholder="Écrivez votre définition..."
