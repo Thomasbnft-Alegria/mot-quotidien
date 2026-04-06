@@ -258,9 +258,11 @@ export function useProgress() {
   }, [user]);
 
   const getMasteredCount = useCallback(() => {
-    return Object.values(wordProgress).filter(p =>
-      p.correctCount > 3 && p.incorrectCount === 0
-    ).length;
+    return Object.values(wordProgress).filter(p => {
+      const total = p.correctCount + p.incorrectCount;
+      // Mastered = at least 3 correct answers AND ≥75% success rate
+      return p.correctCount >= 3 && total > 0 && (p.correctCount / total) >= 0.75;
+    }).length;
   }, [wordProgress]);
 
   return {
