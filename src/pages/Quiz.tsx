@@ -229,12 +229,23 @@ export default function Quiz() {
               })}
             </div>
 
-            {showResult && !isQuizComplete && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-4">
-                <Button size="lg" onClick={handleNext} className="w-full h-12 text-lg gap-2">
-                  Question suivante
-                  <ArrowRight className="w-5 h-5" />
-                </Button>
+            {showResult && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-4 space-y-3">
+                {selectedAnswer && !answerChoices.find(c => c.id === selectedAnswer)?.isCorrect && (
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-success/10 border-2 border-success">
+                    <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-success mb-1">Bonne réponse :</p>
+                      <p className="text-foreground text-sm">{answerChoices.find(c => c.isCorrect)?.definition}</p>
+                    </div>
+                  </div>
+                )}
+                {!isQuizComplete && (
+                  <Button size="lg" onClick={handleNext} className="w-full h-12 text-lg gap-2">
+                    Question suivante
+                    <ArrowRight className="w-5 h-5" />
+                  </Button>
+                )}
               </motion.div>
             )}
           </motion.div>
