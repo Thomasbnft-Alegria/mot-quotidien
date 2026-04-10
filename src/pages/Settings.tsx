@@ -1,16 +1,28 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2, LogOut, KeyRound } from 'lucide-react';
+import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2, LogOut, KeyRound, BookPlus, Search, PenLine } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { BottomNav } from '@/components/BottomNav';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { TimePicker } from '@/components/TimePicker';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+
+interface WordPreview {
+  word: string;
+  definition: string;
+  category: string;
+  register: string;
+  example_sentence: string;
+}
 
 export default function Settings() {
   const { user, signOut } = useAuth();
@@ -31,6 +43,13 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+
+  // Add custom word
+  const [customWord, setCustomWord] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [isInserting, setIsInserting] = useState(false);
+  const [wordPreview, setWordPreview] = useState<WordPreview | null>(null);
+  const [wordError, setWordError] = useState<string | null>(null);
 
   const handleChangePassword = async () => {
     if (newPassword.length < 6) {
@@ -109,6 +128,73 @@ export default function Settings() {
       return 'Désactivées';
     }
     return 'Non configurées';
+  };
+
+  const handleSearchWord = async () => {
+    if (!customWord.trim()) return;
+    setIsSearching(true);
+    setWordPreview(null);
+    setWordError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/add-custom-word`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ word: customWord.trim(), action: 'preview' }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setWordError(data.error || 'Erreur lors de la recherche');
+      } else {
+        setWordPreview(data.word);
+      }
+    } catch {
+      setWordError('Erreur réseau, réessaie.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleInsertWord = async () => {
+    if (!wordPreview) return;
+    setIsInserting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/add-custom-word`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ word: wordPreview.word, action: 'insert', wordData: wordPreview }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast.error(data.error || 'Erreur lors de l\'ajout');
+      } else {
+        toast.success(`✅ "${wordPreview.word}" ajouté à la base !`);
+        setCustomWord('');
+        setWordPreview(null);
+        setWordError(null);
+      }
+    } catch {
+      toast.error('Erreur réseau, réessaie.');
+    } finally {
+      setIsInserting(false);
+    }
   };
 
   const getStatusColor = () => {
@@ -310,6 +396,110 @@ export default function Settings() {
                     {isChangingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : 'OK'}
                   </Button>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Add custom word */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} className="mt-6">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookPlus className="w-5 h-5" />
+                Ajouter un mot
+              </CardTitle>
+              <CardDescription>
+                Saisis un mot — je cherche sa définition et je l'ajoute à ta base de révision
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ex : acrimonie, fulgurance…"
+                  value={customWord}
+                  onChange={e => { setCustomWord(e.target.value); setWordPreview(null); setWordError(null); }}
+                  onKeyDown={e => e.key === 'Enter' && !isSearching && handleSearchWord()}
+                  disabled={isSearching || isInserting}
+                />
+                <Button onClick={handleSearchWord} disabled={!customWord.trim() || isSearching || isInserting} className="gap-2 shrink-0">
+                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  {isSearching ? 'Recherche…' : 'Chercher'}
+                </Button>
+              </div>
+
+              {wordError && (
+                <div className="p-3 bg-destructive/10 rounded-lg text-sm text-destructive">
+                  ❌ {wordError}
+                </div>
+              )}
+
+              {wordPreview && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 p-4 bg-muted/40 rounded-lg border border-border">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-foreground text-lg">{wordPreview.word}</span>
+                    <Badge variant="secondary">{wordPreview.category}</Badge>
+                    <Badge variant="outline">{wordPreview.register}</Badge>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1"><PenLine className="w-3 h-3" /> Définition</Label>
+                    <Textarea
+                      value={wordPreview.definition}
+                      onChange={e => setWordPreview(prev => prev ? { ...prev, definition: e.target.value } : null)}
+                      className="text-sm resize-none"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Exemple</Label>
+                    <Textarea
+                      value={wordPreview.example_sentence}
+                      onChange={e => setWordPreview(prev => prev ? { ...prev, example_sentence: e.target.value } : null)}
+                      className="text-sm resize-none"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Catégorie</Label>
+                      <Select value={wordPreview.category} onValueChange={v => setWordPreview(prev => prev ? { ...prev, category: v } : null)}>
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nom">nom</SelectItem>
+                          <SelectItem value="verbe">verbe</SelectItem>
+                          <SelectItem value="adjectif">adjectif</SelectItem>
+                          <SelectItem value="adverbe">adverbe</SelectItem>
+                          <SelectItem value="locution">locution</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Registre</Label>
+                      <Select value={wordPreview.register} onValueChange={v => setWordPreview(prev => prev ? { ...prev, register: v } : null)}>
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="courant">courant</SelectItem>
+                          <SelectItem value="soutenu">soutenu</SelectItem>
+                          <SelectItem value="familier">familier</SelectItem>
+                          <SelectItem value="vieilli">vieilli</SelectItem>
+                          <SelectItem value="littéraire">littéraire</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Button onClick={handleInsertWord} disabled={isInserting} className="w-full gap-2">
+                    {isInserting ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookPlus className="w-4 h-4" />}
+                    {isInserting ? 'Ajout en cours…' : 'Ajouter à la base'}
+                  </Button>
+                </motion.div>
               )}
             </CardContent>
           </Card>
