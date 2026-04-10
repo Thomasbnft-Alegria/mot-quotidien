@@ -15,7 +15,7 @@ import { TimePicker } from '@/components/TimePicker';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchWordDefinition, insertWordToDatabase } from '@/hooks/useAddWord';
+import { fetchWordDefinition, insertWordToDatabase, checkWordExists } from '@/hooks/useAddWord';
 
 interface WordPreview {
   word: string;
@@ -137,6 +137,13 @@ export default function Settings() {
     setWordPreview(null);
     setWordError(null);
     try {
+      // 1. Vérifier si le mot existe déjà en base
+      const exists = await checkWordExists(customWord.trim());
+      if (exists) {
+        setWordError(`"${customWord.trim()}" est déjà dans ta base de révision.`);
+        return;
+      }
+      // 2. Chercher la définition
       const wordData = await fetchWordDefinition(customWord.trim());
       setWordPreview(wordData);
     } catch (err) {

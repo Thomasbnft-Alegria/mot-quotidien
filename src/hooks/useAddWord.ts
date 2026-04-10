@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const ADMIN_API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-api`;
 const ADMIN_TOKEN = "mq-admin-2026";
 
@@ -115,6 +117,16 @@ function detectRegister(text: string): string {
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
+
+export async function checkWordExists(word: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("words")
+    .select("id")
+    .ilike("word", word.trim())
+    .limit(1);
+  if (error) throw new Error("Erreur lors de la vérification en base.");
+  return (data?.length ?? 0) > 0;
+}
 
 export async function fetchWordDefinition(word: string): Promise<WordData> {
   const encoded = encodeURIComponent(word.toLowerCase().trim());
