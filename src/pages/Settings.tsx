@@ -15,6 +15,7 @@ import { TimePicker } from '@/components/TimePicker';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchWordDefinition, insertWordToDatabase } from '@/hooks/useAddWord';
 
 interface WordPreview {
   word: string;
@@ -136,28 +137,10 @@ export default function Settings() {
     setWordPreview(null);
     setWordError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/add-custom-word`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ word: customWord.trim(), action: 'preview' }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setWordError(data.error || 'Erreur lors de la recherche');
-      } else {
-        setWordPreview(data.word);
-      }
-    } catch {
-      setWordError('Erreur réseau, réessaie.');
+      const wordData = await fetchWordDefinition(customWord.trim());
+      setWordPreview(wordData);
+    } catch (err) {
+      setWordError((err as Error).message || 'Erreur lors de la recherche.');
     } finally {
       setIsSearching(false);
     }
@@ -167,31 +150,13 @@ export default function Settings() {
     if (!wordPreview) return;
     setIsInserting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/add-custom-word`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ word: wordPreview.word, action: 'insert', wordData: wordPreview }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        toast.error(data.error || 'Erreur lors de l\'ajout');
-      } else {
-        toast.success(`✅ "${wordPreview.word}" ajouté à la base !`);
-        setCustomWord('');
-        setWordPreview(null);
-        setWordError(null);
-      }
-    } catch {
-      toast.error('Erreur réseau, réessaie.');
+      await insertWordToDatabase(wordPreview);
+      toast.success(`✅ "${wordPreview.word}" ajouté à la base !`);
+      setCustomWord('');
+      setWordPreview(null);
+      setWordError(null);
+    } catch (err) {
+      toast.error((err as Error).message || 'Erreur lors de l\'ajout.');
     } finally {
       setIsInserting(false);
     }
