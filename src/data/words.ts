@@ -7,7 +7,8 @@ export const words: Word[] = [
     definition: 'Capacité de faire par hasard une découverte inattendue et fructueuse.',
     exampleSentence: 'C\'est par pure sérendipité qu\'il a trouvé ce manuscrit ancien dans la brocante.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '2',
@@ -39,7 +40,8 @@ export const words: Word[] = [
     definition: 'Ce qu\'il y a de plus raffiné, de plus pur dans quelque chose.',
     exampleSentence: 'Ce poème représente la quintessence du romantisme français.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '6',
@@ -71,7 +73,8 @@ export const words: Word[] = [
     definition: 'Manuscrit sur lequel on a effacé un texte ancien pour en écrire un nouveau.',
     exampleSentence: 'Cette ville est un palimpseste où chaque époque a laissé sa trace.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '10',
@@ -90,7 +93,8 @@ export const words: Word[] = [
     definition: 'Le temps du moment opportun, celui qui qualifie un intervalle ou une durée précise et décisive, par opposition au temps qui passe (chronos).',
     exampleSentence: 'Il avait attendu des années ce kairos, l\'instant parfait pour lancer son projet.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '12',
@@ -98,7 +102,8 @@ export const words: Word[] = [
     definition: 'Bonheur calme et durable, sentiment de plénitude profonde et sereine.',
     exampleSentence: 'Après tant d\'années d\'efforts, il goûtait enfin à une félicité sans mélange.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '13',
@@ -106,7 +111,8 @@ export const words: Word[] = [
     definition: 'Personne qui prend ses vacances au mois d\'août.',
     exampleSentence: 'Les autoroutes se vidaient dès que les aoûtiens rentraient chez eux.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '14',
@@ -114,7 +120,8 @@ export const words: Word[] = [
     definition: 'Méthode de lecture collective d\'un livre : plusieurs participants se partagent un ouvrage, chacun lit une partie différente, puis ils mettent en commun ce qu\'ils ont lu.',
     exampleSentence: 'Grâce à l\'arpentage, le groupe avait pu s\'approprier un essai dense en une seule séance.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '15',
@@ -146,7 +153,8 @@ export const words: Word[] = [
     definition: 'État de stagnation, de langueur ou de dépression profonde touchant une activité économique, sociale ou morale.',
     exampleSentence: 'Le secteur immobilier sort lentement du marasme qui l\'a frappé pendant trois ans.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '19',
@@ -154,7 +162,8 @@ export const words: Word[] = [
     definition: 'Étude et identification des causes d\'un phénomène, notamment d\'une maladie.',
     exampleSentence: 'L\'étiologie de cette pathologie reste encore mal comprise par les chercheurs.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '20',
@@ -162,7 +171,8 @@ export const words: Word[] = [
     definition: 'Récit fictif qui explore ce qui aurait pu se passer si l\'histoire avait pris un cours différent.',
     exampleSentence: 'Ce roman d\'uchronie imagine un monde où Napoléon aurait remporté Waterloo.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '21',
@@ -178,7 +188,8 @@ export const words: Word[] = [
     definition: 'Remède universel censé guérir tous les maux ; solution miracle présentée comme réglant tous les problèmes.',
     exampleSentence: 'La croissance économique n\'est pas une panacée contre les inégalités sociales.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '23',
@@ -202,7 +213,8 @@ export const words: Word[] = [
     definition: 'Bruit léger et doux produit par le vent dans les feuilles ou par des feuilles agitées.',
     exampleSentence: 'Le psithurisme des peupliers accompagnait leur promenade le long de la rivière.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '26',
@@ -218,7 +230,8 @@ export const words: Word[] = [
     definition: 'Service de surveillance ou de garde militaire ; aussi, groupe organisé et souvent turbulent au sein d\'un ensemble politique.',
     exampleSentence: 'Les soldats se relayaient en faction toutes les deux heures devant la grille.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '28',
@@ -258,7 +271,8 @@ export const words: Word[] = [
     definition: 'Demi-tour ou évolution circulaire d\'un cavalier ; au figuré, mouvement vif et gracieux.',
     exampleSentence: 'Le cheval fit une superbe caracole avant de s\'immobiliser devant les gradins.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '33',
@@ -266,7 +280,8 @@ export const words: Word[] = [
     definition: 'Texte écrit en évitant délibérément l\'emploi d\'une ou plusieurs lettres de l\'alphabet.',
     exampleSentence: 'La Disparition de Perec est un célèbre lipogramme écrit sans utiliser la lettre e.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '34',
@@ -274,7 +289,8 @@ export const words: Word[] = [
     definition: 'Qualité de quelqu\'un d\'une grande honnêteté et d\'une droiture morale irréprochable.',
     exampleSentence: 'Sa probité légendaire en faisait un arbitre respecté de tous.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '35',
@@ -282,7 +298,8 @@ export const words: Word[] = [
     definition: 'Droits de précéder quelqu\'un en raison de son rang ou de sa dignité ; ordre protocolaire.',
     exampleSentence: 'Les querelles de préséances entre ministres retardèrent l\'ouverture de la cérémonie.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '36',
@@ -290,7 +307,8 @@ export const words: Word[] = [
     definition: 'Pierre plate et mince, généralement de schiste, utilisée comme tuile ou dalle dans la construction traditionnelle.',
     exampleSentence: 'Les toits de lauze donnent aux villages cévenols leur caractère particulier.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '37',
@@ -298,7 +316,8 @@ export const words: Word[] = [
     definition: 'Matériau de construction fait de terre argileuse comprimée et damée entre des coffrages.',
     exampleSentence: 'Les maisons en pisé offrent une excellente isolation thermique naturelle.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '38',
@@ -306,7 +325,8 @@ export const words: Word[] = [
     definition: 'Embarcation légère à fond plat utilisée autrefois pour naviguer sur les rivières et les canaux.',
     exampleSentence: 'Les escafes glissaient silencieusement sur le canal chargées de marchandises.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '39',
@@ -322,7 +342,8 @@ export const words: Word[] = [
     definition: 'Trafic des choses saintes ; commerce illicite des sacrements, offices ou bénéfices ecclésiastiques.',
     exampleSentence: 'La simonie était sévèrement condamnée par l\'Église au Moyen Âge.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '41',
@@ -330,7 +351,8 @@ export const words: Word[] = [
     definition: 'Énumération hétéroclite et fantaisiste d\'objets ou d\'éléments sans lien apparent, à la manière du poète Jacques Prévert.',
     exampleSentence: 'Son bureau était un inventaire à la Prévert : des dossiers, des coquillages, une lampe de plongée.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '42',
@@ -346,7 +368,8 @@ export const words: Word[] = [
     definition: 'Caractère de ce qui est parfaitement cohérent, qui convient exactement ; accord entre des éléments.',
     exampleSentence: 'La congruence entre ses paroles et ses actes lui valait une grande crédibilité.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '44',
@@ -354,7 +377,8 @@ export const words: Word[] = [
     definition: 'Souhait de malheur violemment exprimé contre quelqu\'un ; malédiction proférée avec colère.',
     exampleSentence: 'Il quitta la salle en lançant des imprécations contre ses juges.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '45',
@@ -362,7 +386,8 @@ export const words: Word[] = [
     definition: 'Acte de volonté conscient ; faculté de décider et d\'agir selon sa propre intention.',
     exampleSentence: 'La volition, et non le hasard, guidait chacune de ses décisions.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '46',
@@ -378,7 +403,8 @@ export const words: Word[] = [
     definition: 'Assemblage de fils enroulés en boucles ; au figuré, ensemble embrouillé et difficile à démêler.',
     exampleSentence: 'Démêler l\'écheveau des responsabilités prit des semaines d\'enquête.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '48',
@@ -394,7 +420,8 @@ export const words: Word[] = [
     definition: 'État de rigidité ou de stupeur avec perte de réactivité à l\'environnement, symptôme de certains troubles psychiatriques.',
     exampleSentence: 'La nouvelle le plongea dans une catatonie de plusieurs heures.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '50',
@@ -402,7 +429,8 @@ export const words: Word[] = [
     definition: 'Aubaine, profit ou avantage inattendu qui échoit à quelqu\'un par hasard.',
     exampleSentence: 'Ce contrat tombé du ciel fut une vraie chapechute pour la petite entreprise.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '51',
@@ -418,7 +446,8 @@ export const words: Word[] = [
     definition: 'Victoire remportée au prix de pertes si lourdes qu\'elle équivaut à une défaite ; succès obtenu à un coût prohibitif.',
     exampleSentence: 'Ils avaient gagné le marché, mais c\'était une victoire à la Pyrrhus : ils y perdraient de l\'argent.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '53',
@@ -426,7 +455,8 @@ export const words: Word[] = [
     definition: 'Angle formé par deux plans qui se coupent ; en alpinisme, paroi formant un angle rentrant entre deux faces rocheuses.',
     exampleSentence: 'L\'alpiniste progressait lentement dans le dièdre vertical de la face nord.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '54',
@@ -450,7 +480,8 @@ export const words: Word[] = [
     definition: 'Approbation donnée à quelqu\'un ou à quelque chose ; accord, consentement.',
     exampleSentence: 'Il hocha la tête en signe d\'assentiment sans prononcer un mot.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '57',
@@ -458,7 +489,8 @@ export const words: Word[] = [
     definition: 'Plante herbacée dont les feuilles fournissent une teinture bleue appelée guède ou pastel ; aussi, renard polaire au pelage blanc.',
     exampleSentence: 'Au Moyen Âge, l\'isatis cultivé en Languedoc fournissait le fameux pastel de Toulouse.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '58',
@@ -466,7 +498,8 @@ export const words: Word[] = [
     definition: 'Regret sincère et douloureux de ses fautes ; repentir profond.',
     exampleSentence: 'Sa contrition semblait sincère, mais les victimes n\'étaient pas prêtes à pardonner.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '59',
@@ -474,7 +507,8 @@ export const words: Word[] = [
     definition: 'Accumulation de débris rocheux et de sédiments transportés et déposés par un glacier.',
     exampleSentence: 'La moraine terminale marquait l\'ancienne limite du glacier, plusieurs kilomètres plus bas.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '60',
@@ -482,7 +516,8 @@ export const words: Word[] = [
     definition: 'Étroite corniche naturelle sur une paroi rocheuse permettant de progresser horizontalement en montagne.',
     exampleSentence: 'La vire permettait de traverser la falaise sans avoir à la désescalader.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '61',
@@ -490,7 +525,8 @@ export const words: Word[] = [
     definition: 'Acte par lequel un groupe ou un territoire se sépare d\'un État ou d\'un ensemble pour former une entité indépendante.',
     exampleSentence: 'La tentative de sécession de la province échoua après un référendum serré.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '62',
@@ -506,7 +542,8 @@ export const words: Word[] = [
     definition: 'Personne ou chose dont on parle constamment mais qui ne se montre jamais ; référence à l\'opéra de Bizet.',
     exampleSentence: 'La réforme annoncée depuis cinq ans est devenue l\'arlésienne de ce gouvernement.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '64',
@@ -522,7 +559,8 @@ export const words: Word[] = [
     definition: 'Grande chute d\'eau tumultueuse ; aussi, opacification progressive du cristallin de l\'œil entraînant une baisse de la vision.',
     exampleSentence: 'Le bruit de la cataracte couvrait toutes les conversations.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '66',
@@ -530,7 +568,8 @@ export const words: Word[] = [
     definition: 'Branche de l\'entomologie consacrée à l\'étude scientifique des fourmis.',
     exampleSentence: 'Sa passion pour la myrmécologie l\'avait conduit à cartographier toutes les fourmilières de la forêt.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '67',
@@ -538,7 +577,8 @@ export const words: Word[] = [
     definition: 'Malédiction ou excommunication solennelle prononcée par une autorité religieuse ; condamnation véhémente et publique.',
     exampleSentence: 'Il prononça un anathème contre ceux qui trahissaient les valeurs du mouvement.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '68',
@@ -546,7 +586,8 @@ export const words: Word[] = [
     definition: 'Personne qui pratique l\'ascèse, se soumettant à une discipline sévère et renonçant aux plaisirs pour atteindre une perfection morale ou spirituelle.',
     exampleSentence: 'Il vivait en véritable ascète, se levant à cinq heures pour méditer et courir.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '69',
@@ -554,7 +595,8 @@ export const words: Word[] = [
     definition: 'Violence collective organisée et meurtrière contre une communauté ethnique ou religieuse, notamment les populations juives dans l\'Empire russe.',
     exampleSentence: 'Les pogroms de la fin du XIXe siècle poussèrent des millions de juifs à émigrer.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '70',
@@ -570,7 +612,8 @@ export const words: Word[] = [
     definition: 'Dernière œuvre ou ultime manifestation de talent d\'un artiste, d\'un créateur ou d\'une institution avant sa disparition.',
     exampleSentence: 'Ce roman fut le chant du cygne d\'un écrivain épuisé par la maladie.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '72',
@@ -578,7 +621,8 @@ export const words: Word[] = [
     definition: 'Milieu géographique aux conditions physiques et chimiques homogènes, dans lequel vit une communauté d\'êtres vivants.',
     exampleSentence: 'La destruction de ce biotope menace une dizaine d\'espèces endémiques.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '73',
@@ -602,7 +646,8 @@ export const words: Word[] = [
     definition: 'Cardiomyopathie de stress surnommée "syndrome du cœur brisé" : insuffisance cardiaque temporaire déclenchée par un choc émotionnel intense.',
     exampleSentence: 'Après le décès de son mari, elle fut hospitalisée pour un syndrome de Tako-Tsubo.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '76',
@@ -610,7 +655,8 @@ export const words: Word[] = [
     definition: 'Personnage influent, expert reconnu ou figure importante dans un domaine.',
     exampleSentence: 'Les pontes de la finance s\'étaient réunis pour analyser la crise.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '77',
@@ -618,7 +664,8 @@ export const words: Word[] = [
     definition: 'Persévérance et passion sur le long terme malgré les obstacles, l\'échec et l\'adversité.',
     exampleSentence: 'Au-delà du talent, c\'est le grit qui distingue les individus qui réussissent.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '78',
@@ -626,7 +673,8 @@ export const words: Word[] = [
     definition: 'Discours que l\'on se tient à soi-même ; monologue intérieur prononcé à voix haute sans interlocuteur.',
     exampleSentence: 'Il arpentait la pièce en soliloquant, cherchant la réponse à sa propre question.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '79',
@@ -634,7 +682,8 @@ export const words: Word[] = [
     definition: 'Critique virulente et acerbe ; discours ou écrit violemment hostile contre une personne ou une idée.',
     exampleSentence: 'Son éditorial était une longue diatribe contre la politique culturelle du gouvernement.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '80',
@@ -642,7 +691,8 @@ export const words: Word[] = [
     definition: 'Auteur de pamphlets ; qui a le caractère virulent et polémique d\'un pamphlet.',
     exampleSentence: 'Son style pamphlétaire lui valait autant d\'admirateurs que d\'ennemis.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '81',
@@ -658,7 +708,8 @@ export const words: Word[] = [
     definition: 'Plante qui pousse sur une autre plante sans en être parasite, tirant ses nutriments de l\'air, de la pluie et des débris.',
     exampleSentence: 'Les orchidées épiphytes accrochées aux troncs formaient un spectacle saisissant.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '83',
@@ -666,7 +717,8 @@ export const words: Word[] = [
     definition: 'Seconde signature apposée sur un document pour l\'authentifier ou marquer une co-responsabilité.',
     exampleSentence: 'Le décret nécessitait le contreseing du Premier ministre pour entrer en vigueur.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '84',
@@ -682,7 +734,8 @@ export const words: Word[] = [
     definition: 'Désaccord profond et persistant au sein d\'un groupe ; absence de consensus.',
     exampleSentence: 'Le dissensus au sein du comité rendait toute décision collective impossible.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '86',
@@ -690,7 +743,8 @@ export const words: Word[] = [
     definition: 'Vent doux et agréable soufflant d\'ouest ; par extension, toute brise légère et fraîche.',
     exampleSentence: 'Un zéphyr bienvenu balayait la terrasse en cette chaude journée d\'été.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '87',
@@ -698,7 +752,8 @@ export const words: Word[] = [
     definition: 'Boisson ou liquide très fade et sans saveur ; au figuré, chose insignifiante et sans intérêt.',
     exampleSentence: 'Ce café n\'était qu\'une lavasse tiède et sans goût.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '88',
@@ -706,7 +761,8 @@ export const words: Word[] = [
     definition: 'Orientation d\'un organisme sous l\'influence d\'un stimulus extérieur ; attirance irrésistible et souvent inconsciente vers quelque chose.',
     exampleSentence: 'Son tropisme vers les projets impossibles l\'avait conduit à des réussites inattendues.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '89',
@@ -714,7 +770,8 @@ export const words: Word[] = [
     definition: 'Caractère de ce qui est autre ; reconnaissance et acceptation de l\'autre dans sa différence irréductible.',
     exampleSentence: 'L\'altérité culturelle était au cœur de sa réflexion philosophique.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '90',
@@ -730,7 +787,8 @@ export const words: Word[] = [
     definition: 'Caractère d\'une personne sans volonté, lâche et incapable d\'effort moral ; manque total de courage.',
     exampleSentence: 'Sa veulerie face aux pressions de sa hiérarchie indignait ses collègues.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '92',
@@ -746,7 +804,8 @@ export const words: Word[] = [
     definition: 'Suite de variables aléatoires évoluant dans le temps selon des lois probabilistes ; phénomène dont l\'évolution ne peut être prédite avec certitude.',
     exampleSentence: 'La diffusion de l\'information dans un réseau social est modélisée comme un processus stochastique.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '94',
@@ -754,7 +813,8 @@ export const words: Word[] = [
     definition: 'Opération mathématique combinant deux fonctions pour en produire une troisième ; en anatomie, repli du cortex cérébral.',
     exampleSentence: 'Les réseaux de neurones convolutifs exploitent la convolution pour traiter les images.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '95',
@@ -770,7 +830,8 @@ export const words: Word[] = [
     definition: 'Caractère de ce qui a sa fin en soi-même et vaut pour lui-même, indépendamment de tout but ou utilité extérieure.',
     exampleSentence: 'Il pratiquait la course avec une autotélie parfaite, sans médaille ni performance à atteindre.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '97',
@@ -778,7 +839,8 @@ export const words: Word[] = [
     definition: 'Nom commun ou populaire donné à une espèce dans la langue locale, par opposition au nom scientifique latin.',
     exampleSentence: 'Le nom vernaculaire "rouge-gorge" désigne en France ce que les Anglais appellent "robin".',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'masculin'
   },
   {
     id: '98',
@@ -786,7 +848,8 @@ export const words: Word[] = [
     definition: 'Ensemble des accessoires, équipements et garnitures d\'un bateau, à l\'exclusion de la coque et du moteur.',
     exampleSentence: 'Il avait soigneusement choisi l\'accastillage en inox pour résister à la corrosion marine.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'masculin'
   },
   {
     id: '99',
@@ -794,7 +857,8 @@ export const words: Word[] = [
     definition: 'Technique permettant de mesurer et de reconstituer des objets en trois dimensions à partir de photographies.',
     exampleSentence: 'La photogrammétrie aérienne permet de cartographier des zones difficiles d\'accès avec une grande précision.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '100',
@@ -810,7 +874,8 @@ export const words: Word[] = [
     definition: 'Caractère de ce qui est totalement inoffensif, de ce qui ne cause aucun dommage.',
     exampleSentence: "L'innocuité du nouveau vaccin avait été démontrée lors d'essais cliniques rigoureux.",
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '102',
@@ -818,7 +883,8 @@ export const words: Word[] = [
     definition: 'Complot secret et intrigue menée par un groupe hostile ; coalition organisée contre quelqu\'un.',
     exampleSentence: 'Il fut victime d\'une cabale orchestrée par ses rivaux pour l\'évincer de la direction.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
   {
     id: '103',
@@ -826,7 +892,8 @@ export const words: Word[] = [
     definition: 'Technique de transcription rapide à l\'aide d\'une machine à clavier phonétique permettant de noter la parole en temps réel.',
     exampleSentence: 'La sténotypiste retranscrivait les débats du tribunal à une vitesse stupéfiante.',
     category: 'nom',
-    register: 'soutenu'
+    register: 'soutenu',
+    gender: 'féminin'
   },
   {
     id: '104',
@@ -834,7 +901,8 @@ export const words: Word[] = [
     definition: 'Branche de la zoologie qui étudie les insectes, leur anatomie, leur comportement et leur classification.',
     exampleSentence: 'Son intérêt pour l\'entomologie avait débuté par la découverte d\'un coléoptère rare dans son jardin.',
     category: 'nom',
-    register: 'courant'
+    register: 'courant',
+    gender: 'féminin'
   },
 ];
 

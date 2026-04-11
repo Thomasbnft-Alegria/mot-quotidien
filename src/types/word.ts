@@ -1,5 +1,6 @@
 export type WordCategory = 'nom' | 'adjectif' | 'verbe' | 'adverbe';
 export type WordRegister = 'soutenu' | 'courant';
+export type WordGender = 'masculin' | 'féminin';
 
 export interface Word {
   id: string;
@@ -8,6 +9,7 @@ export interface Word {
   exampleSentence: string;
   category: WordCategory;
   register: WordRegister;
+  gender?: WordGender; // uniquement pour category: 'nom'
 }
 
 export interface WordProgress {
