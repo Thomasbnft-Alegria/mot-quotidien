@@ -255,7 +255,7 @@ export default function WeeklyReview() {
             <Card className="border-0 shadow-lg mb-6">
               <CardContent className="p-6">
                 <div className="flex justify-center mb-4">
-                  <CategoryBadge category={currentWord.category} />
+                  <CategoryBadge category={currentWord.category} gender={currentWord.gender} />
                 </div>
                 <h2 className="text-3xl font-bold text-center text-foreground mb-4">
                   {currentWord.word}

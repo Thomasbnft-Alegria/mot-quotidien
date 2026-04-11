@@ -1,9 +1,10 @@
-import { WordCategory } from '@/types/word';
+import { WordCategory, WordGender } from '@/types/word';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 interface CategoryBadgeProps {
   category: WordCategory;
+  gender?: WordGender;
   className?: string;
 }
 
@@ -21,17 +22,25 @@ const categoryStyles: Record<WordCategory, string> = {
   adverbe: 'bg-badge-adverbe/15 text-badge-adverbe border-badge-adverbe/30',
 };
 
-export function CategoryBadge({ category, className }: CategoryBadgeProps) {
+const genderAbbr: Record<WordGender, string> = {
+  masculin: 'n.m.',
+  féminin: 'n.f.',
+};
+
+export function CategoryBadge({ category, gender, className }: CategoryBadgeProps) {
   return (
     <Badge 
       variant="outline" 
       className={cn(
-        'font-medium text-xs px-3 py-1',
+        'font-medium text-xs px-3 py-1 gap-1.5',
         categoryStyles[category],
         className
       )}
     >
       {categoryLabels[category]}
+      {category === 'nom' && gender && (
+        <span className="italic opacity-70">{genderAbbr[gender]}</span>
+      )}
     </Badge>
   );
 }

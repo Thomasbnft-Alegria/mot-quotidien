@@ -90,7 +90,7 @@ export default function DailyWord() {
                 <CardContent className="p-8">
                   {/* Category Badge */}
                   <div className="flex justify-center mb-6">
-                    <CategoryBadge category={todayWord.category} />
+                    <CategoryBadge category={todayWord.category} gender={todayWord.gender} />
                   </div>
 
                   {/* The Word */}

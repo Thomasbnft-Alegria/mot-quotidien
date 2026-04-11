@@ -186,7 +186,7 @@ export default function Quiz() {
           <motion.div key={currentIndex} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>
             <Card className="border-0 shadow-lg mb-4">
               <CardContent className="p-5">
-                <div className="flex justify-center mb-4"><CategoryBadge category={currentWord.category} /></div>
+                <div className="flex justify-center mb-4"><CategoryBadge category={currentWord.category} gender={currentWord.gender} /></div>
                 <h2 className="text-3xl font-bold text-center text-foreground">{currentWord.word}</h2>
                 <p className="text-center text-sm text-muted-foreground mt-2">Quelle est la définition ?</p>
               </CardContent>
