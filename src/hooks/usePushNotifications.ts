@@ -81,6 +81,23 @@ export function usePushNotifications() {
     ]) as Promise<ServiceWorkerRegistration>;
   };
 
+  // pushManager.subscribe with timeout to avoid infinite hang on some iOS/Android browsers
+  const subscribeWithTimeout = (
+    registration: ServiceWorkerRegistration,
+    options: PushSubscriptionOptionsInit,
+    timeoutMs = 15000,
+  ): Promise<PushSubscription> => {
+    return Promise.race([
+      registration.pushManager.subscribe(options),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`pushManager.subscribe timeout (${timeoutMs / 1000}s) — vérifiez les permissions notifications du navigateur`)),
+          timeoutMs,
+        )
+      ),
+    ]) as Promise<PushSubscription>;
+  };
+
   // Obtains (or renews) a push subscription and saves it to Supabase
   const subscribeToPush = async (): Promise<void> => {
     console.log('[Push] subscribeToPush start');
@@ -92,7 +109,7 @@ export function usePushNotifications() {
     if (!subscription) {
       console.log('[Push] No existing subscription, subscribing...');
       try {
-        subscription = await registration.pushManager.subscribe({
+        subscription = await subscribeWithTimeout(registration, {
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
