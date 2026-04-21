@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mot du Jour</title>
+  <!-- Redirect any 404 back to the app root (handles iOS PWA start_url quirks
+       and direct deep-link navigations on GitHub Pages). -->
+  <script>
+    // Preserve the original path so React Router can pick it up after redirect.
+    var path = window.location.pathname.replace('/mot-quotidien', '') || '/';
+    var search = window.location.search;
+    var hash = window.location.hash;
+    var redirectUrl = '/mot-quotidien/?redirect=' + encodeURIComponent(path + search + hash);
+    window.location.replace(redirectUrl);
+  </script>
+</head>
+<body>
+  <p>Redirection en cours…</p>
+</body>
+</html>
