@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2, LogOut, KeyRound, BookPlus, Search, PenLine } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,25 @@ export default function Settings() {
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [swDebug, setSwDebug] = useState<string>('Chargement…');
+
+  useEffect(() => {
+    const check = async () => {
+      if (!('serviceWorker' in navigator)) { setSwDebug('❌ serviceWorker non supporté'); return; }
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const controller = navigator.serviceWorker.controller;
+        if (!reg) { setSwDebug('❌ Aucune registration SW'); return; }
+        const state = reg.active?.state ?? reg.waiting?.state ?? reg.installing?.state ?? 'absent';
+        setSwDebug(`SW: ${state} | controller: ${controller ? '✅' : '❌'} | scope: ${reg.scope}`);
+      } catch (e) {
+        setSwDebug(`❌ Erreur: ${String(e)}`);
+      }
+    };
+    check();
+    const interval = setInterval(check, 2000);
+    return () => clearInterval(interval);
+  }, []);
   const [newPassword, setNewPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -196,6 +215,11 @@ export default function Settings() {
             Gérez vos préférences
           </p>
         </motion.div>
+
+        {/* SW Debug Panel */}
+        <div className="mb-4 p-3 bg-muted rounded-lg text-xs text-muted-foreground font-mono break-all">
+          {swDebug}
+        </div>
 
         {/* Notifications Card */}
         <motion.div
