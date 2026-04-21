@@ -22,6 +22,9 @@ export function usePushNotifications() {
   const preferredTimeRef = useRef('12:30');
   preferredTimeRef.current = preferredTime;
 
+  // Pre-warmed SW registration — populated at mount so it's ready before user clicks
+  const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
+
   useEffect(() => {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
       setPermissionStatus('unsupported');
@@ -43,6 +46,14 @@ export function usePushNotifications() {
     if (storedEndpoint && Notification.permission === 'granted') {
       checkSubscriptionStatus(storedEndpoint);
     }
+
+    // Pre-warm SW registration so it's cached before the user taps the toggle.
+    // On iOS Safari, pushManager.subscribe() must be called with minimal async
+    // delay from the user gesture — caching the registration eliminates the
+    // navigator.serviceWorker.ready await at click time.
+    navigator.serviceWorker.ready.then((reg) => {
+      swRegistrationRef.current = reg;
+    }).catch(() => {});
   }, []);
 
   const checkSubscriptionStatus = async (endpoint: string) => {
@@ -71,8 +82,13 @@ export function usePushNotifications() {
     }
   };
 
-  // Returns a valid ServiceWorkerRegistration or throws with a clear message
+  // Returns a valid ServiceWorkerRegistration or throws with a clear message.
+  // Uses the pre-warmed ref when available so there is no async delay at click
+  // time (critical for iOS Safari user-gesture gating of pushManager.subscribe).
   const getSwRegistration = async (): Promise<ServiceWorkerRegistration> => {
+    if (swRegistrationRef.current) {
+      return swRegistrationRef.current;
+    }
     return Promise.race([
       navigator.serviceWorker.ready,
       new Promise<never>((_, reject) =>
@@ -184,12 +200,13 @@ export function usePushNotifications() {
     }
   };
 
-  const toggleNotifications = async (enabled: boolean): Promise<void> => {
+  const toggleNotifications = async (enabled: boolean): Promise<boolean> => {
     setIsLoading(true);
     try {
       if (enabled) {
         // Always go through the full subscribe flow to ensure the subscription is fresh
         await subscribeToPush();
+        return true;
       } else {
         const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
         if (endpoint) {
@@ -199,10 +216,12 @@ export function usePushNotifications() {
             .eq('endpoint', endpoint);
         }
         setIsSubscribed(false);
+        return true;
       }
     } catch (error) {
       console.error('[Push] toggleNotifications error:', error);
       toast.error(`Erreur : ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     } finally {
       setIsLoading(false);
     }

@@ -85,10 +85,12 @@ export default function Settings() {
   };
 
   const handleToggle = async (checked: boolean) => {
-    await toggleNotifications(checked);
-    if (checked) {
+    const success = await toggleNotifications(checked);
+    // Only show success toast when the operation actually succeeded.
+    // toggleNotifications shows its own toast.error on failure.
+    if (success && checked) {
       toast.success('Notifications activées !');
-    } else {
+    } else if (success && !checked) {
       toast.info('Notifications désactivées');
     }
   };
