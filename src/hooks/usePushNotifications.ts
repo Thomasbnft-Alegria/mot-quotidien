@@ -47,13 +47,22 @@ export function usePushNotifications() {
       checkSubscriptionStatus(storedEndpoint);
     }
 
-    // Pre-warm SW registration so it's cached before the user taps the toggle.
-    // On iOS Safari, pushManager.subscribe() must be called with minimal async
-    // delay from the user gesture — caching the registration eliminates the
-    // navigator.serviceWorker.ready await at click time.
-    navigator.serviceWorker.ready.then((reg) => {
-      swRegistrationRef.current = reg;
-    }).catch(() => {});
+    // Pre-warm SW registration using getRegistration() — more reliable than
+    // navigator.serviceWorker.ready on iOS Safari (known WebKit bug where
+    // .ready never resolves even when the SW is active).
+    const warmUpSw = async () => {
+      for (let i = 0; i < 100; i++) {
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg?.active) {
+            swRegistrationRef.current = reg;
+            return;
+          }
+        } catch (_) { /* ignore */ }
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    };
+    warmUpSw();
   }, []);
 
   const checkSubscriptionStatus = async (endpoint: string) => {
@@ -83,18 +92,24 @@ export function usePushNotifications() {
   };
 
   // Returns a valid ServiceWorkerRegistration or throws with a clear message.
-  // Uses the pre-warmed ref when available so there is no async delay at click
-  // time (critical for iOS Safari user-gesture gating of pushManager.subscribe).
+  // Uses getRegistration() polling — navigator.serviceWorker.ready is unreliable
+  // on iOS Safari (WebKit bug: never resolves even when SW is active).
   const getSwRegistration = async (): Promise<ServiceWorkerRegistration> => {
     if (swRegistrationRef.current) {
       return swRegistrationRef.current;
     }
-    return Promise.race([
-      navigator.serviceWorker.ready,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Service Worker non disponible (timeout 20s)')), 20000)
-      ),
-    ]) as Promise<ServiceWorkerRegistration>;
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg?.active) {
+          swRegistrationRef.current = reg;
+          return reg;
+        }
+      } catch (_) { /* ignore */ }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    throw new Error('Service Worker non disponible');
   };
 
   // pushManager.subscribe with timeout to avoid infinite hang on some iOS/Android browsers
