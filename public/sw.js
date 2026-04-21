@@ -17,19 +17,22 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate — clean up old caches and claim clients.
-// Kept intentionally simple: no postMessage/reload logic here to avoid
-// iOS deadlocks where the activate waitUntil never resolves.
-// The controllerchange listener in useServiceWorker handles page reload.
+// Activate — clean up old caches.
+// IMPORTANT: self.clients.claim() is called OUTSIDE event.waitUntil so it
+// does NOT block the SW from transitioning to 'activated'. This ensures
+// navigator.serviceWorker.ready resolves as soon as cache cleanup finishes
+// (fast), rather than waiting for all clients to be claimed (which can hang
+// on iOS and cause an infinite wait).
 self.addEventListener('activate', (event) => {
+  // Claim clients immediately (non-blocking)
+  self.clients.claim();
+  // Only wait for cache cleanup — resolves in milliseconds
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) =>
-        Promise.all(
-          cacheNames.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
-        )
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
       )
-      .then(() => self.clients.claim())
+    )
   );
 });
 

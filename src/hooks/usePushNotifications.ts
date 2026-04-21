@@ -92,7 +92,7 @@ export function usePushNotifications() {
     return Promise.race([
       navigator.serviceWorker.ready,
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Service Worker non disponible (timeout 8s)')), 8000)
+        setTimeout(() => reject(new Error('Service Worker non disponible (timeout 20s)')), 20000)
       ),
     ]) as Promise<ServiceWorkerRegistration>;
   };
