@@ -63,11 +63,11 @@ export function usePushNotifications() {
         }
       } else {
         localStorage.removeItem(SUBSCRIPTION_ENDPOINT_KEY);
-        setIsSubscribed(false);
+        // isSubscribed stays false (initial state) — no async reset to avoid race condition with toggle
       }
     } catch (error) {
       console.error('Error checking subscription status:', error);
-      setIsSubscribed(false);
+      // Don't override isSubscribed on network error — avoids race condition
     }
   };
 
