@@ -1,12 +1,12 @@
 // NOTE: Bump this when changing caching strategy to force clients to drop old caches.
-const CACHE_NAME = 'mot-du-jour-v4';
+const CACHE_NAME = 'mot-du-jour-v5';
 const urlsToCache = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
 ];
 
-// Install event — skip waiting immediately so the SW activates without delay.
+// Install — skip waiting immediately so the SW activates without any delay.
 // Caching is best-effort and never blocks activation.
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -17,21 +17,19 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event - clean up old caches and notify clients to reload
+// Activate — clean up old caches and claim clients.
+// Kept intentionally simple: no postMessage/reload logic here to avoid
+// iOS deadlocks where the activate waitUntil never resolves.
+// The controllerchange listener in useServiceWorker handles page reload.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    }).then(() => self.clients.claim()).then(() => {
-      // Notify all clients to reload so they pick up the new version
-      return self.clients.matchAll({ type: 'window' }).then((clients) => {
-        clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED' }));
-      });
-    })
+    caches.keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
