@@ -1,25 +1,19 @@
 // NOTE: Bump this when changing caching strategy to force clients to drop old caches.
-const CACHE_NAME = 'mot-du-jour-v3';
-// Use relative paths so they resolve correctly regardless of the deployment base path
-// (e.g. GitHub Pages /mot-quotidien/ vs root /).
-// IMPORTANT: absolute paths like '/' break SW installation on sub-path deployments.
+const CACHE_NAME = 'mot-du-jour-v4';
 const urlsToCache = [
-  './',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
 ];
 
-// Install event - cache static assets
+// Install event — skip waiting immediately so the SW activates without delay.
+// Caching is best-effort and never blocks activation.
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(urlsToCache))
-      .catch((err) => {
-        // Non-fatal: log and skip caching on install failure so the SW still activates.
-        console.warn('[SW] cache.addAll failed (non-fatal):', err);
-      })
-      .then(() => self.skipWaiting())
+      .catch((err) => console.warn('[SW] cache.addAll failed (non-fatal):', err))
   );
 });
 
