@@ -170,10 +170,14 @@ export function useProgress() {
     const scored = seenWords.map(w => {
       const p = wordProgress[w.id];
       const incorrectCount = p?.incorrectCount || 0;
-      const lastReviewed = p?.lastReviewed ? parseISO(p.lastReviewed).getTime() : 0;
-      const daysSinceReview = (now - lastReviewed) / (1000 * 60 * 60 * 24);
+      const lastReviewedTime = p?.lastReviewed ? parseISO(p.lastReviewed).getTime() : null;
+      // Cap daysSinceReview at 30 days to avoid epoch-based distortion (never-reviewed
+      // words must not get an absurd score of ~20 000 days that drowns out randomness).
+      const daysSinceReview = lastReviewedTime !== null
+        ? Math.min((now - lastReviewedTime) / (1000 * 60 * 60 * 24), 30)
+        : 7; // Never reviewed: moderate priority boost (≈ 7 days)
       // Score: errors weighted heavily + time since review + random noise for variety
-      const score = incorrectCount * 10 + daysSinceReview + Math.random() * 2;
+      const score = incorrectCount * 10 + daysSinceReview + Math.random() * 5;
       return { word: w, score };
     });
 
