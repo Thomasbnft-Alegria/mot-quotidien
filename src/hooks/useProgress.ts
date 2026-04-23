@@ -160,7 +160,14 @@ export function useProgress() {
   }, [user, wordProgress]);
 
   const getQuizWords = useCallback((allWords: Word[], count: number = 5) => {
-    const seenWords = allWords.filter(w => wordProgress[w.id]?.seen);
+    const seenWords = allWords.filter(w => {
+      const p = wordProgress[w.id];
+      if (!p?.seen) return false;
+      // Exclude mastered words: ≥3 correct AND ≥75% success rate
+      const total = (p.correctCount || 0) + (p.incorrectCount || 0);
+      if (total > 0 && p.correctCount >= 3 && (p.correctCount / total) >= 0.75) return false;
+      return true;
+    });
     if (seenWords.length === 0) return [];
 
     // Assign a priority score to each word:
