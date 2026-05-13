@@ -56,6 +56,10 @@ export function usePushNotifications() {
           const reg = await navigator.serviceWorker.getRegistration();
           if (reg?.active) {
             swRegistrationRef.current = reg;
+            // Auto-renew subscription if the browser invalidated it silently
+            if (storedEndpoint && Notification.permission === 'granted') {
+              autoRenewIfNeeded(reg, storedEndpoint);
+            }
             return;
           }
         } catch (_) { /* ignore */ }
@@ -64,6 +68,58 @@ export function usePushNotifications() {
     };
     warmUpSw();
   }, []);
+
+  // Silently renew the push subscription if the browser invalidated it without telling us.
+  // This is the most common cause of "notifications stopped working" without any code change:
+  // the browser (iOS update, Chrome update, PWA reinstall) silently drops the PushSubscription
+  // while localStorage still holds the old endpoint. We detect the mismatch and re-subscribe.
+  const autoRenewIfNeeded = async (
+    registration: ServiceWorkerRegistration,
+    storedEndpoint: string,
+  ): Promise<void> => {
+    try {
+      const current = await registration.pushManager.getSubscription();
+      const currentEndpoint = current?.endpoint ?? null;
+
+      if (currentEndpoint === storedEndpoint) {
+        // All good — subscription is still alive
+        return;
+      }
+
+      // Mismatch or null: subscription was silently invalidated
+      console.log('[Push] autoRenew: subscription mismatch detected, re-subscribing silently…');
+      console.log('[Push] stored:', storedEndpoint.substring(0, 50));
+      console.log('[Push] current:', currentEndpoint ? currentEndpoint.substring(0, 50) : 'null');
+
+      // Unsubscribe stale one if it somehow still exists with a different endpoint
+      if (current && currentEndpoint !== storedEndpoint) {
+        await current.unsubscribe();
+      }
+
+      // Remove stale record from DB
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('endpoint', storedEndpoint);
+
+      // Re-subscribe
+      const newSub = await subscribeWithTimeout(registration, {
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+
+      const key = newSub.getKey('p256dh');
+      const auth = newSub.getKey('auth');
+      const p256dh = key ? btoa(String.fromCharCode(...new Uint8Array(key))) : '';
+      const authKey = auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : '';
+
+      await saveSubscription(newSub.endpoint, p256dh, authKey);
+      console.log('[Push] autoRenew: subscription renewed successfully');
+    } catch (err) {
+      // Silent failure — don't disrupt the user, they can re-enable manually
+      console.warn('[Push] autoRenew failed silently:', err);
+    }
+  };
 
   const checkSubscriptionStatus = async (endpoint: string) => {
     try {

@@ -279,6 +279,14 @@ Deno.serve(async (req) => {
           if (response.ok || response.status === 201) {
             console.log(`[Push] Sent successfully to: ${sub.endpoint.substring(0, 50)}...`);
             return { success: true, endpoint: sub.endpoint };
+          } else if (response.status === 410 || response.status === 404) {
+            // Subscription expired or unregistered — remove it from DB automatically
+            console.warn(`[Push] Subscription expired (${response.status}), removing from DB: ${sub.endpoint.substring(0, 50)}...`);
+            await supabase
+              .from('push_subscriptions')
+              .delete()
+              .eq('endpoint', sub.endpoint);
+            return { success: false, error: `Subscription expired (${response.status}) — removed from DB`, endpoint: sub.endpoint, removed: true };
           } else {
             const errorText = await response.text();
             console.error(`[Push] Failed: ${response.status} - ${errorText}`);
