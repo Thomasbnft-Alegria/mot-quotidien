@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +20,7 @@ export default function Quiz() {
   const [showResult, setShowResult] = useState(false);
   const [quizWords, setQuizWords] = useState<Word[]>([]);
   const [results, setResults] = useState<{ wordId: string; correct: boolean }[]>([]);
+  const resultsRecordedRef = useRef(false);
 
   const availableQuizWords = useMemo(() => {
     return getQuizWords(allWordsForDistractors);
@@ -36,6 +37,7 @@ export default function Quiz() {
       setSelectedAnswer(null);
       setShowResult(false);
       setResults([]);
+      resultsRecordedRef.current = false;
     }
   }, [availableQuizWords]);
 
@@ -83,8 +85,20 @@ export default function Quiz() {
     setSelectedAnswer(answerId);
     setShowResult(true);
     setResults(prev => [...prev, { wordId: currentWord.id, correct: isCorrect }]);
-    recordQuizAnswer(currentWord.id, isCorrect);
+    // Note: recordQuizAnswer is called at quiz completion, not here,
+    // to avoid mid-quiz state changes that would affect word availability on return.
   };
+
+  // Record all answers only once, when the quiz is fully complete
+  const isQuizComplete = currentIndex === quizWords.length - 1 && showResult;
+  useEffect(() => {
+    if (isQuizComplete && !resultsRecordedRef.current && results.length > 0) {
+      resultsRecordedRef.current = true;
+      results.forEach(({ wordId, correct }) => {
+        recordQuizAnswer(wordId, correct);
+      });
+    }
+  }, [isQuizComplete, results, recordQuizAnswer]);
 
   const handleNext = () => {
     if (currentIndex < quizWords.length - 1) {
@@ -94,7 +108,6 @@ export default function Quiz() {
     }
   };
 
-  const isQuizComplete = currentIndex === quizWords.length - 1 && showResult;
   const correctCount = results.filter(r => r.correct).length;
   const progress = ((currentIndex + (showResult ? 1 : 0)) / quizWords.length) * 100;
 
