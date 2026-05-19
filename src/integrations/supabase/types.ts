@@ -47,33 +47,6 @@ export type Database = {
         }
         Relationships: []
       }
-      weekly_reviews: {
-        Row: {
-          id: string
-          user_id: string
-          week_start: string
-          score: number
-          completed_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          week_start: string
-          score: number
-          completed_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          week_start?: string
-          score?: number
-          completed_at?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
       user_progress: {
         Row: {
           correct_count: number
@@ -151,6 +124,33 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_reviews: {
+        Row: {
+          completed_at: string
+          created_at: string
+          id: string
+          score: number
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          completed_at?: string
+          created_at?: string
+          id?: string
+          score: number
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          completed_at?: string
+          created_at?: string
+          id?: string
+          score?: number
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       words: {
         Row: {
           category: string
@@ -159,7 +159,6 @@ export type Database = {
           definition: string
           display_order: number
           example_sentence: string
-          gender: string | null
           id: string
           register: string
           word: string
@@ -171,7 +170,6 @@ export type Database = {
           definition: string
           display_order?: number
           example_sentence: string
-          gender?: string | null
           id?: string
           register: string
           word: string
@@ -183,7 +181,6 @@ export type Database = {
           definition?: string
           display_order?: number
           example_sentence?: string
-          gender?: string | null
           id?: string
           register?: string
           word?: string
