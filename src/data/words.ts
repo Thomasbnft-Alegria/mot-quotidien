@@ -83,9 +83,7 @@ export const words: Word[] = [
     exampleSentence: 'Malgré son âge, il restait fringant et plein d\'énergie.',
     category: 'adjectif',
     register: 'courant'
-  }
-];
-
+  },
   // --- Mots ajoutés depuis la base Notion de Baptiste (09/04/2026) ---
   {
     id: '11',
