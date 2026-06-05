@@ -30,14 +30,25 @@ export default function DailyWord() {
   const [showContent, setShowContent] = useState(false);
   const [srsSessionDone, setSrsSessionDone] = useState(false);
 
-  // Once everything loaded, always start with the word of the day
+  // Once everything loaded, decide starting phase
   useEffect(() => {
-    const isReady = progressLoaded && srsLoaded && !wordLoading && !wordsLoading;
+    const isReady = progressLoaded && srsLoaded && !wordLoading && !wordsLoading && todayWord !== undefined;
     if (!isReady || phase !== 'loading') return;
 
-    setPhase('word');
-    setTimeout(() => setShowContent(true), 100);
-  }, [progressLoaded, srsLoaded, wordLoading, wordsLoading]);
+    const alreadySeen = todayWord ? isWordSeen(todayWord.id) : false;
+    const due = dueReviews();
+
+    if (alreadySeen && due.length > 0) {
+      // Word already seen today → go straight to SRS reviews
+      setReviewQueue(due);
+      setReviewIndex(0);
+      setPhase('srs');
+    } else {
+      // Show word of the day first
+      setPhase('word');
+      setTimeout(() => setShowContent(true), 100);
+    }
+  }, [progressLoaded, srsLoaded, wordLoading, wordsLoading, todayWord]);
 
   useEffect(() => {
     if (progressLoaded && todayWord) {
