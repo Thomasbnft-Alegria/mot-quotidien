@@ -149,16 +149,42 @@ export function useSRS(allWords: Word[]) {
     load();
   }, [user]);
 
-  // Words due for review today (next_review_date <= today), max 10
+  // Always return MAX_REVIEWS_PER_DAY words:
+  // 1. Strictly due today (next_review_date <= today) first
+  // 2. Fill remaining slots with other seen words (oldest reviewed first)
   const dueReviews = useCallback((): Word[] => {
     if (!tableExists) return [];
-    const dueWordIds = Object.values(reviews)
-      .filter(r => r.nextReviewDate <= today)
-      .map(r => r.wordId);
 
-    return allWords
-      .filter(w => dueWordIds.includes(w.id))
-      .slice(0, MAX_REVIEWS_PER_DAY);
+    const allReviews = Object.values(reviews);
+
+    // Words strictly due today
+    const dueIds = new Set(
+      allReviews
+        .filter(r => r.nextReviewDate <= today)
+        .map(r => r.wordId)
+    );
+
+    // All other seen words (not yet due), sorted by oldest last review
+    const notDueReviews = allReviews
+      .filter(r => r.nextReviewDate > today)
+      .sort((a, b) => {
+        const aTime = a.nextReviewDate < today ? 0 : new Date(a.nextReviewDate).getTime();
+        const bTime = b.nextReviewDate < today ? 0 : new Date(b.nextReviewDate).getTime();
+        return aTime - bTime; // soonest upcoming first
+      });
+
+    const dueWords = allWords.filter(w => dueIds.has(w.id));
+    const fillIds = new Set(dueWords.map(w => w.id));
+
+    // Fill up to MAX with not-yet-due words
+    const fillWords: Word[] = [];
+    for (const r of notDueReviews) {
+      if (fillWords.length + dueWords.length >= MAX_REVIEWS_PER_DAY) break;
+      const word = allWords.find(w => w.id === r.wordId && !fillIds.has(w.id));
+      if (word) { fillWords.push(word); fillIds.add(word.id); }
+    }
+
+    return [...dueWords, ...fillWords].slice(0, MAX_REVIEWS_PER_DAY);
   }, [reviews, allWords, today, tableExists]);
 
   // Submit a review result and update SRS schedule
