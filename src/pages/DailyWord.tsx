@@ -254,7 +254,7 @@ export default function DailyWord() {
                 className="w-full h-14 text-lg font-medium gap-2"
               >
                 <BookOpen className="w-5 h-5" />
-                Réviser{dueReviews().length > 0 ? ` (${dueReviews().length})` : ''}
+                Réviser
               </Button>
             </>
           )}
