@@ -30,25 +30,14 @@ export default function DailyWord() {
   const [showContent, setShowContent] = useState(false);
   const [srsSessionDone, setSrsSessionDone] = useState(false);
 
-  // Once everything loaded, decide starting phase
+  // Once everything loaded, always show the word of the day first
   useEffect(() => {
-    const isReady = progressLoaded && srsLoaded && !wordLoading && !wordsLoading && todayWord !== undefined;
+    const isReady = progressLoaded && srsLoaded && !wordLoading && !wordsLoading;
     if (!isReady || phase !== 'loading') return;
 
-    const alreadySeen = todayWord ? isWordSeen(todayWord.id) : false;
-    const due = dueReviews();
-
-    if (alreadySeen && due.length > 0) {
-      // Word already seen today → go straight to SRS reviews
-      setReviewQueue(due);
-      setReviewIndex(0);
-      setPhase('srs');
-    } else {
-      // Show word of the day first
-      setPhase('word');
-      setTimeout(() => setShowContent(true), 100);
-    }
-  }, [progressLoaded, srsLoaded, wordLoading, wordsLoading, todayWord]);
+    setPhase('word');
+    setTimeout(() => setShowContent(true), 100);
+  }, [progressLoaded, srsLoaded, wordLoading, wordsLoading]);
 
   useEffect(() => {
     if (progressLoaded && todayWord) {
@@ -248,15 +237,32 @@ export default function DailyWord() {
               <div className="text-center text-success font-medium mb-2">
                 ✓ Mot appris aujourd'hui
               </div>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => navigate('/quiz')}
-                className="w-full h-14 text-lg font-medium gap-2"
-              >
-                <BookOpen className="w-5 h-5" />
-                Réviser
-              </Button>
+              {dueReviews().length > 0 ? (
+                <Button
+                  size="lg"
+                  onClick={() => {
+                    const due = dueReviews();
+                    setReviewQueue(due);
+                    setReviewIndex(0);
+                    setSrsSessionDone(false);
+                    setPhase('srs');
+                  }}
+                  className="w-full h-14 text-lg font-medium gap-2"
+                >
+                  <BookOpen className="w-5 h-5" />
+                  Réviser ({dueReviews().length} mot{dueReviews().length > 1 ? 's' : ''})
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => navigate('/quiz')}
+                  className="w-full h-14 text-lg font-medium gap-2"
+                >
+                  <BookOpen className="w-5 h-5" />
+                  Réviser
+                </Button>
+              )}
             </>
           )}
         </motion.div>
