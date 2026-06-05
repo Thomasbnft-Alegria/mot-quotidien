@@ -92,13 +92,16 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {};
   const title = data.title || 'Mot du Jour';
+  // Derive the correct base path from the SW scope (handles GitHub Pages subdirectory)
+  const scope = self.registration.scope;
+  const iconUrl = new URL('icon-192.png', scope).href;
   const options = {
     body: data.body || 'Votre mot du jour est arrivé',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: iconUrl,
+    badge: iconUrl,
     vibrate: [100, 50, 100],
     data: {
-      url: data.url || '/'
+      url: new URL(data.url || './', scope).href
     }
   };
 
@@ -112,8 +115,9 @@ self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.notification);
   event.notification.close();
   
-  // Always navigate to home page
-  const targetUrl = '/';
+  // Navigate to the URL from notification data (scope-aware, handles GitHub Pages subdirectory)
+  const notifData = event.notification.data || {};
+  const targetUrl = notifData.url || self.registration.scope;
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })

@@ -1,0 +1,87 @@
+-- ============================================================
+-- Migration: Dynamic pg_cron scheduling per push subscription
+-- ============================================================
+-- Chaque abonnement obtient deux jobs cron (hiver/été UTC)
+-- pour gérer le changement d'heure Paris automatiquement.
+-- La logique isTimeMatch() de la edge function garantit
+-- qu'un seul des deux jobs envoie réellement la notification.
+-- ============================================================
+
+-- Fonction : gère les jobs pg_cron d'un abonnement push
+CREATE OR REPLACE FUNCTION manage_push_cron_jobs()
+RETURNS TRIGGER AS $$
+DECLARE
+  rec         RECORD;
+  job_winter  TEXT;
+  job_summer  TEXT;
+  h_paris     INT;
+  m_paris     INT;
+  h_utc1      INT;   -- Paris hiver = UTC+1
+  h_utc2      INT;   -- Paris été   = UTC+2
+  anon_key    CONSTANT TEXT := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrYmNzcndxemRzcHNjeWJodmxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5NDMyNjUsImV4cCI6MjA4NTUxOTI2NX0.IqAhbxGp8iUk0WmZK0gKAFUBgH2MM9ZNoBn5nkhvZLY';
+  fn_url      CONSTANT TEXT := 'https://akbcsrwqzdspscybhvlo.supabase.co/functions/v1/send-daily-notification';
+BEGIN
+  rec := CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+
+  job_winter := 'push_' || rec.id::TEXT || '_w';
+  job_summer  := 'push_' || rec.id::TEXT || '_s';
+
+  -- Supprimer les jobs existants (ignore si inexistants)
+  BEGIN PERFORM cron.unschedule(job_winter); EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN PERFORM cron.unschedule(job_summer); EXCEPTION WHEN OTHERS THEN NULL; END;
+
+  -- Suppression ou désactivation → nettoyage seulement
+  IF TG_OP = 'DELETE' OR NOT rec.enabled OR rec.preferred_time IS NULL THEN
+    RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+  END IF;
+
+  -- Extraire l'heure et les minutes (stored as Paris time)
+  h_paris := EXTRACT(HOUR   FROM rec.preferred_time)::INT;
+  m_paris := EXTRACT(MINUTE FROM rec.preferred_time)::INT;
+
+  -- Convertir en UTC
+  h_utc1 := MOD(h_paris - 1 + 24, 24);  -- hiver (UTC+1)
+  h_utc2 := MOD(h_paris - 2 + 24, 24);  -- été   (UTC+2)
+
+  -- Job hiver : ex. 12:30 Paris hiver = 11:30 UTC
+  PERFORM cron.schedule(
+    job_winter,
+    m_paris || ' ' || h_utc1 || ' * * *',
+    format(
+      $cmd$SELECT net.http_post(url:=%L, body:=(%L)::jsonb, headers:=(%L)::jsonb)$cmd$,
+      fn_url,
+      json_build_object('scheduled', true, 'endpoint', rec.endpoint)::text,
+      json_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || anon_key)::text
+    )
+  );
+
+  -- Job été : ex. 12:30 Paris été = 10:30 UTC
+  PERFORM cron.schedule(
+    job_summer,
+    m_paris || ' ' || h_utc2 || ' * * *',
+    format(
+      $cmd$SELECT net.http_post(url:=%L, body:=(%L)::jsonb, headers:=(%L)::jsonb)$cmd$,
+      fn_url,
+      json_build_object('scheduled', true, 'endpoint', rec.endpoint)::text,
+      json_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || anon_key)::text
+    )
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger : se déclenche sur tout changement pertinent
+DROP TRIGGER IF EXISTS trg_push_cron ON push_subscriptions;
+CREATE TRIGGER trg_push_cron
+  AFTER INSERT OR UPDATE OR DELETE
+  ON push_subscriptions
+  FOR EACH ROW
+  EXECUTE FUNCTION manage_push_cron_jobs();
+
+-- Bootstrap : créer les jobs pour tous les abonnements existants
+-- en forçant un UPDATE no-op qui déclenche le trigger
+UPDATE push_subscriptions
+SET    preferred_time = preferred_time
+WHERE  enabled = true
+  AND  preferred_time IS NOT NULL;
