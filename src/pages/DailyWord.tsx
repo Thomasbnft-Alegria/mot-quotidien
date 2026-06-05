@@ -237,32 +237,25 @@ export default function DailyWord() {
               <div className="text-center text-success font-medium mb-2">
                 ✓ Mot appris aujourd'hui
               </div>
-              {dueReviews().length > 0 ? (
-                <Button
-                  size="lg"
-                  onClick={() => {
-                    const due = dueReviews();
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => {
+                  const due = dueReviews();
+                  if (due.length > 0) {
                     setReviewQueue(due);
                     setReviewIndex(0);
                     setSrsSessionDone(false);
                     setPhase('srs');
-                  }}
-                  className="w-full h-14 text-lg font-medium gap-2"
-                >
-                  <BookOpen className="w-5 h-5" />
-                  Réviser ({dueReviews().length} mot{dueReviews().length > 1 ? 's' : ''})
-                </Button>
-              ) : (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => navigate('/quiz')}
-                  className="w-full h-14 text-lg font-medium gap-2"
-                >
-                  <BookOpen className="w-5 h-5" />
-                  Réviser
-                </Button>
-              )}
+                  } else {
+                    navigate('/quiz');
+                  }
+                }}
+                className="w-full h-14 text-lg font-medium gap-2"
+              >
+                <BookOpen className="w-5 h-5" />
+                Réviser{dueReviews().length > 0 ? ` (${dueReviews().length})` : ''}
+              </Button>
             </>
           )}
         </motion.div>
