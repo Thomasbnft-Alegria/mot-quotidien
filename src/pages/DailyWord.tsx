@@ -1,39 +1,82 @@
-// Daily Word Page - Server-side word selection with Paris timezone
+// Daily Word Page - with SRS active recall before the word of the day
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { BottomNav } from '@/components/BottomNav';
+import { ActiveRecall } from '@/components/ActiveRecall';
 import { useProgress } from '@/hooks/useProgress';
 import { useDailyWord } from '@/hooks/useDailyWord';
+import { useSRS, SRSQuality } from '@/hooks/useSRS';
+import { useQuizWords } from '@/hooks/useQuizWords';
 import { Sparkles, BookOpen, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { NotificationPrompt } from '@/components/NotificationPrompt';
 
+type Phase = 'loading' | 'srs' | 'word' | 'done';
+
 export default function DailyWord() {
   const navigate = useNavigate();
-  const { word: todayWord, isLoading, error, refetch } = useDailyWord();
-  const { markWordAsSeen, isWordSeen, isLoaded } = useProgress();
+  const { word: todayWord, isLoading: wordLoading, error, refetch } = useDailyWord();
+  const { markWordAsSeen, isWordSeen, isLoaded: progressLoaded } = useProgress();
+  const { allWords, isLoading: wordsLoading } = useQuizWords();
+  const { dueReviews, submitReview, createReview, isLoaded: srsLoaded } = useSRS(allWords);
+
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [reviewQueue, setReviewQueue] = useState<typeof allWords>([]);
+  const [reviewIndex, setReviewIndex] = useState(0);
   const [hasSeenToday, setHasSeenToday] = useState(false);
   const [showContent, setShowContent] = useState(false);
+  const [srsSessionDone, setSrsSessionDone] = useState(false);
 
+  // Once everything loaded, decide the starting phase
   useEffect(() => {
-    if (isLoaded && todayWord) {
-      setHasSeenToday(isWordSeen(todayWord.id));
-      // Delay content appearance for animation
+    const isReady = progressLoaded && srsLoaded && !wordLoading && !wordsLoading;
+    if (!isReady || phase !== 'loading') return;
+
+    const due = dueReviews();
+    if (due.length > 0 && !srsSessionDone) {
+      setReviewQueue(due);
+      setReviewIndex(0);
+      setPhase('srs');
+    } else {
+      setPhase('word');
       setTimeout(() => setShowContent(true), 100);
     }
-  }, [isLoaded, todayWord, isWordSeen]);
+  }, [progressLoaded, srsLoaded, wordLoading, wordsLoading]);
 
-  const handleMarkSeen = () => {
+  useEffect(() => {
+    if (progressLoaded && todayWord) {
+      setHasSeenToday(isWordSeen(todayWord.id));
+    }
+  }, [progressLoaded, todayWord, isWordSeen]);
+
+  const handleSRSResult = async (quality: SRSQuality) => {
+    const currentWord = reviewQueue[reviewIndex];
+    await submitReview(currentWord.id, quality);
+
+    const nextIndex = reviewIndex + 1;
+    if (nextIndex < reviewQueue.length) {
+      setReviewIndex(nextIndex);
+    } else {
+      // All reviews done → move to word of the day
+      setSrsSessionDone(true);
+      setPhase('word');
+      setTimeout(() => setShowContent(true), 100);
+    }
+  };
+
+  const handleMarkSeen = async () => {
     if (todayWord) {
-      markWordAsSeen(todayWord.id);
+      await markWordAsSeen(todayWord.id);
+      await createReview(todayWord.id); // Schedule first SRS review for tomorrow
       setHasSeenToday(true);
     }
   };
 
-  if (isLoading || !isLoaded) {
+  // Loading state
+  if (phase === 'loading' || wordLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
@@ -41,7 +84,8 @@ export default function DailyWord() {
     );
   }
 
-  if (error || !todayWord) {
+  // Error state
+  if (phase === 'word' && (error || !todayWord)) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center pb-20 px-6">
         <p className="text-muted-foreground mb-4 text-center">
@@ -56,19 +100,55 @@ export default function DailyWord() {
     );
   }
 
+  // SRS phase: active recall
+  if (phase === 'srs' && reviewQueue.length > 0) {
+    const currentWord = reviewQueue[reviewIndex];
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="max-w-lg mx-auto px-6 py-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentWord.id}
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.25 }}
+            >
+              <ActiveRecall
+                word={currentWord}
+                current={reviewIndex + 1}
+                total={reviewQueue.length}
+                onResult={handleSRSResult}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  // Word of the day phase
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-6 py-8">
-        {/* Notification Prompt */}
         <NotificationPrompt />
 
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="text-center mb-8"
         >
+          {srsSessionDone && reviewQueue.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-4 inline-flex items-center gap-2 bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 text-sm font-medium px-3 py-1.5 rounded-full"
+            >
+              ✓ {reviewQueue.length} révision{reviewQueue.length > 1 ? 's' : ''} terminée{reviewQueue.length > 1 ? 's' : ''}
+            </motion.div>
+          )}
           <div className="flex items-center justify-center gap-2 text-primary mb-2">
             <Sparkles className="w-5 h-5" />
             <span className="text-sm font-medium uppercase tracking-wider">Mot du jour</span>
@@ -78,9 +158,8 @@ export default function DailyWord() {
           </p>
         </motion.div>
 
-        {/* Word Card */}
         <AnimatePresence mode="wait">
-          {showContent && (
+          {showContent && todayWord && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -88,12 +167,10 @@ export default function DailyWord() {
             >
               <Card className="border-0 shadow-lg bg-card">
                 <CardContent className="p-8">
-                  {/* Category Badge */}
                   <div className="flex justify-center mb-6">
                     <CategoryBadge category={todayWord.category} gender={todayWord.gender} />
                   </div>
 
-                  {/* The Word */}
                   <motion.h1
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -103,7 +180,6 @@ export default function DailyWord() {
                     {todayWord.word}
                   </motion.h1>
 
-                  {/* Register indicator */}
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -113,7 +189,6 @@ export default function DailyWord() {
                     {todayWord.register === 'soutenu' ? 'Registre soutenu' : 'Registre courant'}
                   </motion.p>
 
-                  {/* Definition */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -125,7 +200,6 @@ export default function DailyWord() {
                     </p>
                   </motion.div>
 
-                  {/* Example Sentence */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -142,7 +216,6 @@ export default function DailyWord() {
           )}
         </AnimatePresence>
 
-        {/* Action Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
