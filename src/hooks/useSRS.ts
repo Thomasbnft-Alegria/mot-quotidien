@@ -50,7 +50,7 @@ function sm2(
 }
 
 const qualityMap: Record<SRSQuality, number> = { easy: 5, good: 3, hard: 1 };
-const MAX_REVIEWS_PER_DAY = 10;
+const MAX_REVIEWS_PER_DAY = 5;
 
 export function useSRS(allWords: Word[]) {
   const { user } = useAuth();

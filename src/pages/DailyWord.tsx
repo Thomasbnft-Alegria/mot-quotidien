@@ -14,7 +14,7 @@ import { Sparkles, BookOpen, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { NotificationPrompt } from '@/components/NotificationPrompt';
 
-type Phase = 'loading' | 'srs' | 'word' | 'done';
+type Phase = 'loading' | 'word' | 'srs' | 'done';
 
 export default function DailyWord() {
   const navigate = useNavigate();
@@ -30,20 +30,13 @@ export default function DailyWord() {
   const [showContent, setShowContent] = useState(false);
   const [srsSessionDone, setSrsSessionDone] = useState(false);
 
-  // Once everything loaded, decide the starting phase
+  // Once everything loaded, always start with the word of the day
   useEffect(() => {
     const isReady = progressLoaded && srsLoaded && !wordLoading && !wordsLoading;
     if (!isReady || phase !== 'loading') return;
 
-    const due = dueReviews();
-    if (due.length > 0 && !srsSessionDone) {
-      setReviewQueue(due);
-      setReviewIndex(0);
-      setPhase('srs');
-    } else {
-      setPhase('word');
-      setTimeout(() => setShowContent(true), 100);
-    }
+    setPhase('word');
+    setTimeout(() => setShowContent(true), 100);
   }, [progressLoaded, srsLoaded, wordLoading, wordsLoading]);
 
   useEffect(() => {
@@ -60,10 +53,10 @@ export default function DailyWord() {
     if (nextIndex < reviewQueue.length) {
       setReviewIndex(nextIndex);
     } else {
-      // All reviews done → move to word of the day
+      // All reviews done → back to word of the day (already seen)
       setSrsSessionDone(true);
+      setHasSeenToday(true);
       setPhase('word');
-      setTimeout(() => setShowContent(true), 100);
     }
   };
 
@@ -71,7 +64,16 @@ export default function DailyWord() {
     if (todayWord) {
       await markWordAsSeen(todayWord.id);
       await createReview(todayWord.id); // Schedule first SRS review for tomorrow
-      setHasSeenToday(true);
+
+      // After marking seen, check if there are SRS reviews due
+      const due = dueReviews();
+      if (due.length > 0) {
+        setReviewQueue(due);
+        setReviewIndex(0);
+        setPhase('srs');
+      } else {
+        setHasSeenToday(true);
+      }
     }
   };
 
@@ -146,7 +148,7 @@ export default function DailyWord() {
               animate={{ opacity: 1, scale: 1 }}
               className="mb-4 inline-flex items-center gap-2 bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 text-sm font-medium px-3 py-1.5 rounded-full"
             >
-              ✓ {reviewQueue.length} révision{reviewQueue.length > 1 ? 's' : ''} terminée{reviewQueue.length > 1 ? 's' : ''}
+              ✓ Session complète — {reviewQueue.length} révision{reviewQueue.length > 1 ? 's' : ''} faite{reviewQueue.length > 1 ? 's' : ''}
             </motion.div>
           )}
           <div className="flex items-center justify-center gap-2 text-primary mb-2">
