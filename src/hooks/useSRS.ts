@@ -77,6 +77,58 @@ export function useSRS(allWords: Word[]) {
       }
 
       setTableExists(true);
+      const existingReviewWordIds = new Set((data || []).map((r: any) => r.word_id));
+
+      // Bootstrap: create SRS entries for words already seen but without a review entry
+      // Schedule them for today so they appear immediately
+      const { data: seenWords } = await supabase
+        .from('user_progress')
+        .select('word_id')
+        .eq('user_id', user.id)
+        .eq('seen', true);
+
+      if (seenWords && seenWords.length > 0) {
+        const toBootstrap = seenWords
+          .filter((p: any) => !existingReviewWordIds.has(p.word_id))
+          .map((p: any) => ({
+            user_id: user.id,
+            word_id: p.word_id,
+            ease_factor: 2.5,
+            interval_days: 1,
+            repetitions: 0,
+            next_review_date: today, // due today
+            last_reviewed_at: null,
+          }));
+
+        if (toBootstrap.length > 0) {
+          console.log(`[SRS] Bootstrapping ${toBootstrap.length} seen words into SRS`);
+          await supabase
+            .from('word_reviews')
+            .insert(toBootstrap);
+          // Re-fetch after bootstrap
+          const { data: refreshed } = await supabase
+            .from('word_reviews')
+            .select('*')
+            .eq('user_id', user.id);
+          if (refreshed) {
+            const map: Record<string, WordReview> = {};
+            for (const row of refreshed) {
+              map[row.word_id] = {
+                id: row.id,
+                wordId: row.word_id,
+                easeFactor: row.ease_factor,
+                intervalDays: row.interval_days,
+                repetitions: row.repetitions,
+                nextReviewDate: row.next_review_date,
+              };
+            }
+            setReviews(map);
+          }
+          setIsLoaded(true);
+          return;
+        }
+      }
+
       if (data) {
         const map: Record<string, WordReview> = {};
         for (const row of data) {
