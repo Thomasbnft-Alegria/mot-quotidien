@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2, LogOut, KeyRound, BookPlus, Search, PenLine } from 'lucide-react';
+import { Bell, BellOff, Settings as SettingsIcon, CheckCircle, XCircle, AlertCircle, Send, Loader2, LogOut, KeyRound, BookPlus, Search, PenLine, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -480,12 +480,42 @@ export default function Settings() {
           </Card>
         </motion.div>
 
+        {/* Cache */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="mt-4"
+        >
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-foreground">Cache du mot du jour</p>
+                  <p className="text-sm text-muted-foreground">Forcer le rechargement depuis le serveur</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    localStorage.removeItem('mot-du-jour-daily-word-cache');
+                    toast.success('Cache vidé — rechargez le mot du jour');
+                  }}
+                  className="gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Vider
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         {/* Logout */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="mt-6"
+          className="mt-4"
         >
           <Card className="border-0 shadow-lg">
             <CardContent className="p-4">
