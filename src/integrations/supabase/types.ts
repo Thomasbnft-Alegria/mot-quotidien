@@ -203,6 +203,7 @@ export type Database = {
           definition: string
           display_order: number
           example_sentence: string
+          gender: string | null
           id: string
           register: string
           word: string
@@ -214,6 +215,7 @@ export type Database = {
           definition: string
           display_order?: number
           example_sentence: string
+          gender?: string | null
           id?: string
           register: string
           word: string
@@ -225,6 +227,7 @@ export type Database = {
           definition?: string
           display_order?: number
           example_sentence?: string
+          gender?: string | null
           id?: string
           register?: string
           word?: string

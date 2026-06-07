@@ -41,10 +41,10 @@ export function useQuizWords() {
 
       // Transform to Word type
       const transformWord = (w: Record<string, unknown>): Word => ({
-        id: w.id,
-        word: w.word,
-        definition: w.definition,
-        exampleSentence: w.example_sentence,
+        id: w.id as string,
+        word: w.word as string,
+        definition: w.definition as string,
+        exampleSentence: w.example_sentence as string,
         category: w.category as Word['category'],
         register: w.register as Word['register'],
       });
