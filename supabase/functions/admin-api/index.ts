@@ -171,6 +171,31 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── RUN MIGRATION (DDL via direct DB connection) ──────────────
+    if (action === "run_migration") {
+      const { sql } = body;
+      if (!sql) {
+        return new Response(
+          JSON.stringify({ success: false, error: "sql is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const dbUrl = Deno.env.get("SUPABASE_DB_URL")!;
+      const { Pool } = await import("https://deno.land/x/postgres@v0.17.0/mod.ts");
+      const pool = new Pool(dbUrl, 1, true);
+      const conn = await pool.connect();
+      try {
+        await conn.queryArray(sql);
+      } finally {
+        conn.release();
+        await pool.end();
+      }
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: false, error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
