@@ -10,9 +10,9 @@ interface CategoryBadgeProps {
 
 const categoryLabels: Record<WordCategory, string> = {
   nom: 'Nom',
-  adjectif: 'Adjectif',
+  adjectif: 'Adj.',
   verbe: 'Verbe',
-  adverbe: 'Adverbe',
+  adverbe: 'Adv.',
 };
 
 const categoryStyles: Record<WordCategory, string> = {
@@ -22,9 +22,14 @@ const categoryStyles: Record<WordCategory, string> = {
   adverbe: 'bg-badge-adverbe/15 text-badge-adverbe border-badge-adverbe/30',
 };
 
-function getGenderLabel(category: WordCategory, gender: WordGender): string {
-  if (category === 'nom') return gender === 'masculin' ? 'n.m.' : 'n.f.';
-  return gender === 'masculin' ? 'm.' : 'f.';
+function getBadgeLabel(category: WordCategory, gender?: WordGender): string {
+  if (category === 'nom' && gender) {
+    return gender === 'masculin' ? 'n.m.' : 'n.f.';
+  }
+  if (category === 'adjectif' && gender) {
+    return gender === 'masculin' ? 'adj. m.' : 'adj. f.';
+  }
+  return categoryLabels[category];
 }
 
 export function CategoryBadge({ category, gender, className }: CategoryBadgeProps) {
@@ -32,15 +37,12 @@ export function CategoryBadge({ category, gender, className }: CategoryBadgeProp
     <Badge 
       variant="outline" 
       className={cn(
-        'font-medium text-xs px-3 py-1 gap-1.5',
+        'font-medium text-xs px-3 py-1',
         categoryStyles[category],
         className
       )}
     >
-      {categoryLabels[category]}
-      {gender && (
-        <span className="italic opacity-70">{getGenderLabel(category, gender)}</span>
-      )}
+      {getBadgeLabel(category, gender)}
     </Badge>
   );
 }
