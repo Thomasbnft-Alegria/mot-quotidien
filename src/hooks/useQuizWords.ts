@@ -40,7 +40,7 @@ export function useQuizWords() {
       if (allWordsResult.error) throw allWordsResult.error;
 
       // Transform to Word type
-      const transformWord = (w: any): Word => ({
+      const transformWord = (w: Record<string, unknown>): Word => ({
         id: w.id,
         word: w.word,
         definition: w.definition,

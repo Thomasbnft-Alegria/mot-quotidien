@@ -77,7 +77,7 @@ export function useSRS(allWords: Word[]) {
       }
 
       setTableExists(true);
-      const existingReviewWordIds = new Set((data || []).map((r: any) => r.word_id));
+      const existingReviewWordIds = new Set((data || []).map((r: { word_id: string }) => r.word_id));
 
       // Bootstrap: create SRS entries for words already seen but without a review entry
       // Schedule them for today so they appear immediately
@@ -89,8 +89,8 @@ export function useSRS(allWords: Word[]) {
 
       if (seenWords && seenWords.length > 0) {
         const toBootstrap = seenWords
-          .filter((p: any) => !existingReviewWordIds.has(p.word_id))
-          .map((p: any) => ({
+          .filter((p: { word_id: string }) => !existingReviewWordIds.has(p.word_id))
+          .map((p: { word_id: string }) => ({
             user_id: user.id,
             word_id: p.word_id,
             ease_factor: 2.5,
