@@ -57,7 +57,7 @@ function removeNestedTemplates(text: string): string {
 function cleanWikitext(text: string): string {
   let t = removeNestedTemplates(text);
   t = t
-    .replace(/\[\[([^\|\]]+\|)?([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[([^|[\]]+\|)?([^\]]+)\]\]/g, "$2")
     .replace(/'''([^']+)'''/g, "$1")
     .replace(/''([^']+)''/g, "$1")
     .replace(/<[^>]+>/g, "")
