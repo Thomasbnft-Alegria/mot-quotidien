@@ -170,7 +170,14 @@ export default function Quiz() {
                 const word = quizWords[idx];
                 return (
                   <div key={result.wordId} className={cn("flex items-center justify-between p-3 rounded-lg", result.correct ? "bg-success/10" : "bg-destructive/10")}>
-                    <span className="font-medium">{word.word}</span>
+                    <span className="font-medium">
+                      {word.word}
+                      {word.gender && (
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground italic">
+                          ({word.gender === 'masculin' ? 'm.' : 'f.'})
+                        </span>
+                      )}
+                    </span>
                     {result.correct ? <CheckCircle className="w-5 h-5 text-success" /> : <XCircle className="w-5 h-5 text-destructive" />}
                   </div>
                 );

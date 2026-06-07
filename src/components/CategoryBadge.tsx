@@ -22,10 +22,10 @@ const categoryStyles: Record<WordCategory, string> = {
   adverbe: 'bg-badge-adverbe/15 text-badge-adverbe border-badge-adverbe/30',
 };
 
-const genderAbbr: Record<WordGender, string> = {
-  masculin: 'n.m.',
-  féminin: 'n.f.',
-};
+function getGenderLabel(category: WordCategory, gender: WordGender): string {
+  if (category === 'nom') return gender === 'masculin' ? 'n.m.' : 'n.f.';
+  return gender === 'masculin' ? 'm.' : 'f.';
+}
 
 export function CategoryBadge({ category, gender, className }: CategoryBadgeProps) {
   return (
@@ -38,8 +38,8 @@ export function CategoryBadge({ category, gender, className }: CategoryBadgeProp
       )}
     >
       {categoryLabels[category]}
-      {category === 'nom' && gender && (
-        <span className="italic opacity-70">{genderAbbr[gender]}</span>
+      {gender && (
+        <span className="italic opacity-70">{getGenderLabel(category, gender)}</span>
       )}
     </Badge>
   );

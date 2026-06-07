@@ -172,7 +172,14 @@ export function ActiveRecall({ word, current, total, onResult }: ActiveRecallPro
               ) : (
                 <>
                   <p className="font-semibold text-red-600 dark:text-red-400">La réponse était :</p>
-                  <p className="text-lg font-bold text-foreground">{word.word}</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {word.word}
+                    {word.gender && (
+                      <span className="ml-1.5 text-sm font-normal text-muted-foreground italic">
+                        ({word.gender === 'masculin' ? 'm.' : 'f.'})
+                      </span>
+                    )}
+                  </p>
                 </>
               )}
             </div>
