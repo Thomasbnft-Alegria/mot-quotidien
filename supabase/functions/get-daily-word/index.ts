@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Bump this version whenever a significant data/schema change requires cache invalidation on clients
+const DATA_VERSION = "2026-06-07-v1";
+
 // Get current date in Europe/Paris timezone as YYYY-MM-DD string
 function getParisDateString(): string {
   const now = new Date();
@@ -51,6 +54,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
+          dataVersion: DATA_VERSION,
           word: {
             id: todayWord.id,
             word: todayWord.word,
@@ -119,6 +123,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
+        dataVersion: DATA_VERSION,
         word: {
           id: selectedWord.id,
           word: selectedWord.word,

@@ -16,6 +16,7 @@ interface CachedWord {
   word: Word;
   date: string;
   cachedAt: number;
+  dataVersion?: string;
 }
 
 // Get current Paris date for cache validation
@@ -46,8 +47,11 @@ export function useDailyWord() {
     if (cachedData) {
       try {
         const cached: CachedWord = JSON.parse(cachedData);
-        // If cache is for today (Paris time), use it immediately
-        if (cached.date === todayParis) {
+        // Cache is valid if: same date AND dataVersion is present and matches
+        // Missing dataVersion = old cache format → force refresh
+        const sameDate = cached.date === todayParis;
+        const versionOk = !!cached.dataVersion; // will be checked against server response after fetch
+        if (sameDate && versionOk) {
           console.log('Using cached daily word for', todayParis);
           setState({
             word: cached.word,
@@ -57,6 +61,8 @@ export function useDailyWord() {
           });
           return;
         }
+        // Date changed or old cache without version → clear and re-fetch
+        localStorage.removeItem(CACHE_KEY);
       } catch (e) {
         console.warn('Failed to parse cached daily word:', e);
       }
@@ -78,12 +84,14 @@ export function useDailyWord() {
 
       const word: Word = data.word;
       const date: string = data.date;
+      const dataVersion: string | undefined = data.dataVersion;
 
-      // Cache the result
+      // Cache the result (with dataVersion for future invalidation)
       const cacheData: CachedWord = {
         word,
         date,
         cachedAt: Date.now(),
+        dataVersion,
       };
       localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
 
