@@ -11,8 +11,11 @@ export function useServiceWorker() {
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
-        .register(import.meta.env.BASE_URL + 'sw.js')
+        .register(import.meta.env.BASE_URL + 'sw.js', { updateViaCache: 'none' })
         .then((reg) => {
+          // Force immediate check for SW update on every page load
+          reg.update().catch(() => {});
+
           console.log('Service Worker registered:', reg.scope);
           setRegistration(reg);
           setIsRegistered(true);

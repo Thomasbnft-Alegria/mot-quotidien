@@ -1,5 +1,5 @@
 // NOTE: Bump this when changing caching strategy to force clients to drop old caches.
-const CACHE_NAME = 'mot-du-jour-v5';
+const CACHE_NAME = 'mot-du-jour-v6';
 const urlsToCache = [
   './manifest.json',
   './icon-192.png',
