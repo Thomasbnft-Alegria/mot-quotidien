@@ -236,6 +236,18 @@ export function usePushNotifications() {
         .eq('endpoint', endpoint);
       console.log('[Push] Updated existing subscription in DB');
     } else {
+      // New endpoint — delete all old subscriptions to avoid duplicate notifications
+      const { data: oldSubs } = await supabase
+        .from('push_subscriptions')
+        .select('id, endpoint')
+        .neq('endpoint', endpoint);
+      if (oldSubs && oldSubs.length > 0) {
+        await supabase
+          .from('push_subscriptions')
+          .delete()
+          .neq('endpoint', endpoint);
+        console.log(`[Push] Deleted ${oldSubs.length} old subscription(s) before inserting new one`);
+      }
       await supabase
         .from('push_subscriptions')
         .insert({ endpoint, p256dh, auth, enabled: true, preferred_time: timeForDb });
