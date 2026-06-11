@@ -1,5 +1,5 @@
 // NOTE: Bump this when changing caching strategy to force clients to drop old caches.
-const CACHE_NAME = 'mot-du-jour-v6';
+const CACHE_NAME = 'mot-du-jour-v7';
 const urlsToCache = [
   './manifest.json',
   './icon-192.png',
@@ -101,7 +101,8 @@ self.addEventListener('push', (event) => {
     badge: iconUrl,
     vibrate: [100, 50, 100],
     data: {
-      url: new URL(data.url || './', scope).href
+      // Always use scope as base so relative URLs resolve correctly on GitHub Pages subdirectory
+      url: scope
     }
   };
 
