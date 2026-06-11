@@ -173,6 +173,18 @@ Deno.serve(async (req) => {
     const { hours: currentHours, minutes: currentMinutes, timeString: currentTime } = getParisTime();
     console.log(`[Push] Current Paris time: ${currentTime}, isScheduled=${isScheduled}, isTest=${isTest}`);
 
+    // Dedup: if multiple subscriptions exist, keep only the most recent one
+    const { data: allSubs } = await supabase
+      .from('push_subscriptions')
+      .select('id, created_at')
+      .order('created_at', { ascending: false });
+
+    if (allSubs && allSubs.length > 1) {
+      const idsToDelete = allSubs.slice(1).map((s: { id: string }) => s.id);
+      await supabase.from('push_subscriptions').delete().in('id', idsToDelete);
+      console.log(`[Push] Dedup: deleted ${idsToDelete.length} old subscription(s), kept most recent`);
+    }
+
     // Fetch enabled subscriptions
     let query = supabase
       .from('push_subscriptions')
@@ -247,7 +259,7 @@ Deno.serve(async (req) => {
           title,
           body: '',
           icon: '/icon-192.png',
-          url: '/',
+          url: './',
         });
 
         console.log(`[Push] Sending to ${sub.endpoint.substring(0, 50)}... title: ${title}`);
