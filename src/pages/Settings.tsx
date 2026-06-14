@@ -180,7 +180,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="page-scroll bg-background pb-24">
       <div className="max-w-lg mx-auto px-6 py-8">
         {/* Header */}
         <motion.div

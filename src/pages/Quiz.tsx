@@ -113,7 +113,7 @@ export default function Quiz() {
 
   if (wordsLoading || !isLoaded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-20">
+      <div className="page-scroll bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
       </div>
     );
@@ -123,7 +123,7 @@ export default function Quiz() {
     const hasWords = availableQuizWords.length > 0;
 
     return (
-      <div className="min-h-screen bg-background pb-20">
+      <div className="page-scroll bg-background pb-20">
         <div className="max-w-lg mx-auto px-4 py-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -157,7 +157,7 @@ export default function Quiz() {
   if (isQuizComplete) {
     const percentage = Math.round((correctCount / quizWords.length) * 100);
     return (
-      <div className="min-h-screen bg-background pb-20">
+      <div className="page-scroll bg-background pb-20">
         <div className="max-w-lg mx-auto px-4 py-6">
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
             <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4", percentage >= 80 ? "bg-success/10" : percentage >= 50 ? "bg-primary/10" : "bg-destructive/10")}>
@@ -192,7 +192,7 @@ export default function Quiz() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="page-scroll bg-background pb-20">
       <div className="max-w-lg mx-auto px-4 py-4">
         <div className="mb-4">
           <div className="flex justify-between text-sm text-muted-foreground mb-2">

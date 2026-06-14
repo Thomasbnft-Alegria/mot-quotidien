@@ -84,7 +84,7 @@ export default function WeeklyReview() {
 
   if (!isLoaded || wordsLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-20">
+      <div className="page-scroll bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
       </div>
     );
@@ -93,7 +93,7 @@ export default function WeeklyReview() {
   // Already done this week with 100% — locked
   if (weeklyStatus.completed && weeklyStatus.score === 100 && !reviewStarted) {
     return (
-      <div className="min-h-screen bg-background pb-24">
+      <div className="page-scroll bg-background pb-24">
         <div className="max-w-lg mx-auto px-6 py-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -123,7 +123,7 @@ export default function WeeklyReview() {
     const isRetry = weeklyStatus.completed && weeklyStatus.score < 100;
 
     return (
-      <div className="min-h-screen bg-background pb-24">
+      <div className="page-scroll bg-background pb-24">
         <div className="max-w-lg mx-auto px-6 py-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -170,7 +170,7 @@ export default function WeeklyReview() {
     const isPerfect = percentage === 100;
 
     return (
-      <div className="min-h-screen bg-background pb-24">
+      <div className="page-scroll bg-background pb-24">
         <div className="max-w-lg mx-auto px-6 py-8">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -234,7 +234,7 @@ export default function WeeklyReview() {
 
   // Quiz in progress
   return (
-    <div className="page-fixed safe-area-top bg-background">
+    <div className="page-fixed bg-background">
       <div className="flex-1 overflow-y-auto">
       <div className="max-w-lg mx-auto px-6 py-6">
         {/* Progress indicator */}
