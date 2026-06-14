@@ -234,8 +234,9 @@ export default function WeeklyReview() {
 
   // Quiz in progress
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-lg mx-auto px-6 py-8">
+    <div className="page-fixed safe-area-top bg-background">
+      <div className="flex-1 overflow-y-auto">
+      <div className="max-w-lg mx-auto px-6 py-6">
         {/* Progress indicator */}
         <div className="text-center mb-6">
           <span className="text-sm text-muted-foreground">
@@ -318,6 +319,7 @@ export default function WeeklyReview() {
             )}
           </motion.div>
         </AnimatePresence>
+      </div>
       </div>
       <BottomNav />
     </div>

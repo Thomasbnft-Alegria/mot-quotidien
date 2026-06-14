@@ -106,24 +106,26 @@ export default function DailyWord() {
   if (phase === 'srs' && reviewQueue.length > 0) {
     const currentWord = reviewQueue[reviewIndex];
     return (
-      <div className="min-h-screen bg-background pb-24">
-        <div className="max-w-lg mx-auto px-6 py-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentWord.id}
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.25 }}
-            >
-              <ActiveRecall
-                word={currentWord}
-                current={reviewIndex + 1}
-                total={reviewQueue.length}
-                onResult={handleSRSResult}
-              />
-            </motion.div>
-          </AnimatePresence>
+      <div className="page-fixed safe-area-top bg-background">
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-lg mx-auto px-6 py-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentWord.id}
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.25 }}
+              >
+                <ActiveRecall
+                  word={currentWord}
+                  current={reviewIndex + 1}
+                  total={reviewQueue.length}
+                  onResult={handleSRSResult}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
         <BottomNav />
       </div>
