@@ -121,6 +121,19 @@ All colors MUST be HSL.
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
+/* Safe area for top (Dynamic Island / notch) */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Full screen without scroll — for quiz/revision sessions */
+.page-fixed {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Smooth page transitions */
 .page-transition {
   @apply transition-all duration-300 ease-in-out;
