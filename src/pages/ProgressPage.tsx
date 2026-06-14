@@ -9,7 +9,7 @@ export default function ProgressPage() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-20">
+      <div className="page-scroll bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
       </div>
     );
@@ -50,7 +50,7 @@ export default function ProgressPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="page-scroll bg-background pb-24">
       <div className="max-w-lg mx-auto px-6 py-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}

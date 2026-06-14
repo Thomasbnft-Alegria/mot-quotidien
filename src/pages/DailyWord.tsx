@@ -80,7 +80,7 @@ export default function DailyWord() {
   // Loading state
   if (phase === 'loading' || wordLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-20">
+      <div className="page-scroll bg-background flex items-center justify-center pb-20">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
       </div>
     );
@@ -89,7 +89,7 @@ export default function DailyWord() {
   // Error state
   if (phase === 'word' && (error || !todayWord)) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center pb-20 px-6">
+      <div className="page-scroll bg-background flex flex-col items-center justify-center pb-20 px-6">
         <p className="text-muted-foreground mb-4 text-center">
           {error || 'Impossible de charger le mot du jour'}
         </p>
@@ -106,7 +106,7 @@ export default function DailyWord() {
   if (phase === 'srs' && reviewQueue.length > 0) {
     const currentWord = reviewQueue[reviewIndex];
     return (
-      <div className="page-fixed safe-area-top bg-background">
+      <div className="page-fixed bg-background">
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto px-6 py-6">
             <AnimatePresence mode="wait">
@@ -134,7 +134,7 @@ export default function DailyWord() {
 
   // Word of the day phase
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="page-scroll bg-background pb-24">
       <div className="max-w-lg mx-auto px-6 py-8">
         <NotificationPrompt />
 

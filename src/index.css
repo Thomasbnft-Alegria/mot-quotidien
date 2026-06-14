@@ -126,12 +126,22 @@ All colors MUST be HSL.
   padding-top: env(safe-area-inset-top, 0);
 }
 
-/* Full screen without scroll — for quiz/revision sessions */
+/* Full screen without scroll — for quiz/revision sessions
+   box-sizing: border-box so the safe-area padding is included in 100dvh */
 .page-fixed {
   height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0);
+  box-sizing: border-box;
+}
+
+/* Scrollable full-height page with safe areas */
+.page-scroll {
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0);
+  box-sizing: border-box;
 }
 
 /* Smooth page transitions */

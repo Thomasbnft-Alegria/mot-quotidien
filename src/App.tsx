@@ -21,7 +21,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="page-scroll bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Chargement...</div>
       </div>
     );
@@ -38,7 +38,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={
         isLoading ? (
-          <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="page-scroll bg-background flex items-center justify-center">
             <div className="animate-pulse text-muted-foreground">Chargement...</div>
           </div>
         ) : user ? <Navigate to="/" replace /> : <Login />
