@@ -24,6 +24,18 @@ function normalize(s: string): string {
     .trim();
 }
 
+// Mask all forms of the word in a sentence (handles conjugations, plurals, etc.)
+// Strategy: extract a stem (first N chars) and replace any word starting with it
+function maskWord(sentence: string, word: string): string {
+  // Stem = first max(4, word.length - 3) characters
+  // Covers: batifoler → batifol, laconique → laconiq, acrimonieux → acrimoni
+  const stemLength = Math.max(4, word.length - 3);
+  const stem = word.slice(0, stemLength);
+  // Escape special regex chars in stem
+  const escapedStem = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return sentence.replace(new RegExp(`\\b${escapedStem}\\w*`, 'gi'), '___');
+}
+
 export function ActiveRecall({ word, current, total, onResult }: ActiveRecallProps) {
   const [input, setInput] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -90,7 +102,7 @@ export function ActiveRecall({ word, current, total, onResult }: ActiveRecallPro
           </p>
           {word.exampleSentence && (
             <p className="text-sm text-center text-muted-foreground mt-3">
-              Ex. : {word.exampleSentence.replace(new RegExp(word.word, 'gi'), '___')}
+              Ex. : {maskWord(word.exampleSentence, word.word)}
             </p>
           )}
         </CardContent>
