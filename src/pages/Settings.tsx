@@ -488,11 +488,14 @@ export default function Settings() {
           className="mt-4"
         >
           <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-foreground">Cache du mot du jour</p>
-                  <p className="text-sm text-muted-foreground">Forcer le rechargement depuis le serveur</p>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="w-5 h-5" />
+                    Cache du mot du jour
+                  </CardTitle>
+                  <CardDescription>Forcer le rechargement depuis le serveur</CardDescription>
                 </div>
                 <Button
                   variant="outline"
@@ -500,13 +503,11 @@ export default function Settings() {
                     localStorage.removeItem('mot-du-jour-daily-word-cache');
                     toast.success('Cache vidé — rechargez le mot du jour');
                   }}
-                  className="gap-2"
                 >
-                  <Trash2 className="w-4 h-4" />
                   Vider
                 </Button>
               </div>
-            </CardContent>
+            </CardHeader>
           </Card>
         </motion.div>
 
@@ -518,22 +519,24 @@ export default function Settings() {
           className="mt-4"
         >
           <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-foreground">Connecté en tant que</p>
-                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                  <CardTitle className="flex items-center gap-2">
+                    <LogOut className="w-5 h-5" />
+                    Connecté en tant que
+                  </CardTitle>
+                  <CardDescription>{user?.email}</CardDescription>
                 </div>
                 <Button
                   variant="outline"
                   onClick={async () => { await signOut(); }}
                   className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
                 >
-                  <LogOut className="w-4 h-4" />
                   Se déconnecter
                 </Button>
               </div>
-            </CardContent>
+            </CardHeader>
           </Card>
         </motion.div>
       </div>
