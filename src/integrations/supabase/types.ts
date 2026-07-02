@@ -21,6 +21,7 @@ export type Database = {
           enabled: boolean
           endpoint: string
           id: string
+          last_notified_at: string | null
           p256dh: string
           preferred_time: string
           updated_at: string
@@ -31,6 +32,7 @@ export type Database = {
           enabled?: boolean
           endpoint: string
           id?: string
+          last_notified_at?: string | null
           p256dh: string
           preferred_time?: string
           updated_at?: string
@@ -41,6 +43,7 @@ export type Database = {
           enabled?: boolean
           endpoint?: string
           id?: string
+          last_notified_at?: string | null
           p256dh?: string
           preferred_time?: string
           updated_at?: string
