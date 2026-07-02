@@ -242,11 +242,21 @@ Deno.serve(async (req) => {
 
     // Send push to each subscription
     const results = await Promise.all(
-      subscriptionsToNotify.map(async (sub: DBSubscription) => {
+      subscriptionsToNotify.map(async (sub: DBSubscription & { last_notified_at?: string | null }) => {
         // Skip local/mock subscriptions
         if (sub.endpoint.startsWith('local-')) {
           console.log(`[Push] Skipping local subscription: ${sub.endpoint}`);
           return { success: false, error: 'Local subscription', endpoint: sub.endpoint };
+        }
+
+        // Anti-doublon : skip si notifié il y a moins de 20h (sauf en mode test)
+        if (!isTest && sub.last_notified_at) {
+          const lastMs = new Date(sub.last_notified_at).getTime();
+          const ageHours = (Date.now() - lastMs) / (1000 * 60 * 60);
+          if (ageHours < 20) {
+            console.log(`[Push] Skipping (dedupe): last notified ${ageHours.toFixed(1)}h ago for ${sub.endpoint.substring(0, 50)}...`);
+            return { success: false, error: `Skipped: notified ${ageHours.toFixed(1)}h ago`, endpoint: sub.endpoint, skipped: true };
+          }
         }
 
         const prefTime = sub.preferred_time ? sub.preferred_time.substring(0, 5) : '??:??';
