@@ -300,6 +300,12 @@ Deno.serve(async (req) => {
 
           if (response.ok || response.status === 201) {
             console.log(`[Push] Sent successfully to: ${sub.endpoint.substring(0, 50)}...`);
+            // Marquer comme notifié (bypass RLS via service role)
+            const { error: updErr } = await supabase
+              .from('push_subscriptions')
+              .update({ last_notified_at: new Date().toISOString() })
+              .eq('id', sub.id);
+            if (updErr) console.error('[Push] Failed to update last_notified_at:', updErr);
             return { success: true, endpoint: sub.endpoint };
           } else if (response.status === 410 || response.status === 404) {
             // Subscription expired or unregistered — remove it from DB automatically
