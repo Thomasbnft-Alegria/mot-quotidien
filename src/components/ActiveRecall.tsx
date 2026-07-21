@@ -24,16 +24,20 @@ function normalize(s: string): string {
     .trim();
 }
 
-// Mask all forms of the word in a sentence (handles conjugations, plurals, etc.)
-// Strategy: extract a stem (first N chars) and replace any word starting with it
+// Mask all forms of the word in a sentence (handles conjugations, accents, plurals, etc.)
+// Strategy: normalize stem + each token to compare without accents
 function maskWord(sentence: string, word: string): string {
-  // Stem = first max(4, word.length - 3) characters
-  // Covers: batifoler → batifol, laconique → laconiq, acrimonieux → acrimoni
   const stemLength = Math.max(4, word.length - 3);
   const stem = word.slice(0, stemLength);
-  // Escape special regex chars in stem
-  const escapedStem = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return sentence.replace(new RegExp(`\\b${escapedStem}\\w*`, 'gi'), '___');
+
+  // Normalize for accent-insensitive comparison
+  const normStem = stem.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // Match sequences of letters including accented French characters
+  return sentence.replace(/[a-zA-ZÀ-ÖØ-öø-ÿœŒæÆ]+/g, (token) => {
+    const normToken = token.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return normToken.startsWith(normStem) ? '___' : token;
+  });
 }
 
 export function ActiveRecall({ word, current, total, onResult }: ActiveRecallProps) {
