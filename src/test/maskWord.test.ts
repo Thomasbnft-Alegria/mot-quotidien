@@ -4,18 +4,17 @@ import { describe, it, expect } from 'vitest';
 function maskWord(sentence: string, word: string): string {
   const stemLength = Math.max(4, word.length - 3);
   const stem = word.slice(0, stemLength);
-  const escapedStem = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return sentence.replace(new RegExp(`\\b${escapedStem}\\w*`, 'gi'), '___');
+  const normStem = stem.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return sentence.replace(/[a-zA-ZÀ-ÖØ-öø-ÿœŒæÆ]+/g, (token) => {
+    const normToken = token.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return normToken.startsWith(normStem) ? '___' : token;
+  });
 }
 
 describe('maskWord', () => {
   it('masque la forme conjuguée (batifoler → batifolaient)', () => {
-    const result = maskWord(
-      'Les enfants batifolaient dans le jardin.',
-      'batifoler'
-    );
+    const result = maskWord('Les enfants batifolaient dans le jardin.', 'batifoler');
     expect(result).toBe('Les enfants ___ dans le jardin.');
-    expect(result).not.toContain('batifol');
   });
 
   it('masque le mot exact (laconique)', () => {
@@ -23,7 +22,7 @@ describe('maskWord', () => {
     expect(result).toBe('Il était ___ dans ses réponses.');
   });
 
-  it('masque le pluriel (acrimonieux → acrimonieus*)', () => {
+  it('masque le pluriel (acrimonieux)', () => {
     const result = maskWord('Ses propos acrimonieux blessèrent tout le monde.', 'acrimonieux');
     expect(result).toBe('Ses propos ___ blessèrent tout le monde.');
   });
@@ -43,11 +42,31 @@ describe('maskWord', () => {
     expect(result).toBe('Le chat dort paisiblement.');
   });
 
-  it('fonctionne avec un mot court (4 lettres min de stem)', () => {
+  it('fonctionne avec un mot court (stem = mot entier)', () => {
     const result = maskWord('Il riait franchement.', 'rire');
-    // stem = 'r' (max(4,4-3)=max(4,1)=4 → 'rire' entier)
-    // matches 'rire', 'riait' non car stem=rire mais riait ne commence pas par 'rire'
-    // In this case stem = 'rire' (4 chars), riait doesn't match — expected behavior
     expect(result).toBe('Il riait franchement.');
+  });
+
+  // Cas spécifique du bug remonté par Thomas
+  it('masque une forme accentuée (Ebaudir → ébaudissaient)', () => {
+    const result = maskWord(
+      'Les pitreries du clown ébaudissaient les enfants.',
+      'Ebaudir'
+    );
+    expect(result).toBe('Les pitreries du clown ___ les enfants.');
+    expect(result).not.toContain('ébaud');
+  });
+
+  it('masque quand le mot lui-même a un accent (Ébaudir)', () => {
+    const result = maskWord(
+      'Les pitreries du clown ébaudissaient les enfants.',
+      'Ébaudir'
+    );
+    expect(result).toBe('Les pitreries du clown ___ les enfants.');
+  });
+
+  it('masque une forme sans accent dans la phrase pour un mot accenté', () => {
+    const result = maskWord('Elle ebaudissait tout le monde.', 'Ébaudir');
+    expect(result).toBe('Elle ___ tout le monde.');
   });
 });
