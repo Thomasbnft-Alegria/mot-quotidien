@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- faux client Supabase en mémoire (test) */
 import { describe, it, expect } from 'vitest';
 import { resolvePersonalWord } from '../../supabase/functions/get-daily-word/personal';
 
