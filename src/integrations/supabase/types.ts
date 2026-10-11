@@ -97,6 +97,66 @@ export type Database = {
           },
         ]
       }
+      user_progress_backup_20261011: {
+        Row: {
+          correct_count: number | null
+          created_at: string | null
+          id: string | null
+          incorrect_count: number | null
+          last_reviewed: string | null
+          seen: boolean | null
+          seen_date: string | null
+          updated_at: string | null
+          user_id: string | null
+          word_id: string | null
+        }
+        Insert: {
+          correct_count?: number | null
+          created_at?: string | null
+          id?: string | null
+          incorrect_count?: number | null
+          last_reviewed?: string | null
+          seen?: boolean | null
+          seen_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          word_id?: string | null
+        }
+        Update: {
+          correct_count?: number | null
+          created_at?: string | null
+          id?: string | null
+          incorrect_count?: number | null
+          last_reviewed?: string | null
+          seen?: boolean | null
+          seen_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          word_id?: string | null
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          reservoir_size: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          reservoir_size?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          reservoir_size?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_streaks: {
         Row: {
           created_at: string
@@ -156,35 +216,50 @@ export type Database = {
       }
       word_reviews: {
         Row: {
+          check_stage: number
           created_at: string
           ease_factor: number
+          easy_count: number
           id: string
           interval_days: number
           last_reviewed_at: string | null
+          mastered_at: string | null
+          next_check_date: string | null
           next_review_date: string
           repetitions: number
+          status: string
           user_id: string
           word_id: string
         }
         Insert: {
+          check_stage?: number
           created_at?: string
           ease_factor?: number
+          easy_count?: number
           id?: string
           interval_days?: number
           last_reviewed_at?: string | null
+          mastered_at?: string | null
+          next_check_date?: string | null
           next_review_date?: string
           repetitions?: number
+          status?: string
           user_id: string
           word_id: string
         }
         Update: {
+          check_stage?: number
           created_at?: string
           ease_factor?: number
+          easy_count?: number
           id?: string
           interval_days?: number
           last_reviewed_at?: string | null
+          mastered_at?: string | null
+          next_check_date?: string | null
           next_review_date?: string
           repetitions?: number
+          status?: string
           user_id?: string
           word_id?: string
         }
@@ -197,6 +272,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      word_reviews_backup_20261011: {
+        Row: {
+          created_at: string | null
+          ease_factor: number | null
+          id: string | null
+          interval_days: number | null
+          last_reviewed_at: string | null
+          next_review_date: string | null
+          repetitions: number | null
+          user_id: string | null
+          word_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          ease_factor?: number | null
+          id?: string | null
+          interval_days?: number | null
+          last_reviewed_at?: string | null
+          next_review_date?: string | null
+          repetitions?: number | null
+          user_id?: string | null
+          word_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          ease_factor?: number | null
+          id?: string | null
+          interval_days?: number | null
+          last_reviewed_at?: string | null
+          next_review_date?: string | null
+          repetitions?: number | null
+          user_id?: string | null
+          word_id?: string | null
+        }
+        Relationships: []
       }
       words: {
         Row: {
