@@ -25,6 +25,7 @@ export type Database = {
           p256dh: string
           preferred_time: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           auth: string
@@ -36,6 +37,7 @@ export type Database = {
           p256dh: string
           preferred_time?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           auth?: string
@@ -47,8 +49,38 @@ export type Database = {
           p256dh?: string
           preferred_time?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
+      }
+      user_daily_word: {
+        Row: {
+          created_at: string
+          user_id: string
+          word_date: string
+          word_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          word_date: string
+          word_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          word_date?: string
+          word_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_daily_word_word_id_fkey"
+            columns: ["word_id"]
+            isOneToOne: false
+            referencedRelation: "words"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_progress: {
         Row: {
