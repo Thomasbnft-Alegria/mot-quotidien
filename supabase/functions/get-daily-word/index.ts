@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolvePersonalWord, toWordPayload } from "./personal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,14 +12,20 @@ const DATA_VERSION = "2026-06-07-v1";
 // Get current date in Europe/Paris timezone as YYYY-MM-DD string
 function getParisDateString(): string {
   const now = new Date();
-  // Format in Paris timezone
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Paris',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   });
-  return formatter.format(now); // Returns YYYY-MM-DD format
+  return formatter.format(now); // YYYY-MM-DD
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 Deno.serve(async (req) => {
@@ -29,12 +36,50 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    const todayParis = getParisDateString();
-    console.log(`Getting daily word for Paris date: ${todayParis}`);
 
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const todayParis = getParisDateString();
+    console.log("Getting daily word for Paris date: " + todayParis);
+
+    // ── Mode PERSONNEL (opt-in) : { personal: true } + JWT utilisateur, ou clé service + userId (appel interne)
+    let body: { personal?: boolean; userId?: string } = {};
+    try { body = await req.json(); } catch { /* pas de body : mode global */ }
+
+    if (body && body.personal === true) {
+      const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+      let userId: string | null = null;
+      if (token && token === supabaseServiceKey && typeof body.userId === "string") {
+        userId = body.userId;
+      } else if (token) {
+        const { data, error } = await supabase.auth.getUser(token);
+        if (!error && data?.user) userId = data.user.id;
+      }
+
+      if (userId) {
+        try {
+          const result = await resolvePersonalWord(supabase, userId, todayParis);
+          if (result) {
+            return json({
+              success: true,
+              dataVersion: DATA_VERSION,
+              isPersonal: true,
+              kind: result.kind,
+              activeCount: result.activeCount,
+              reservoirSize: result.reservoirSize,
+              word: result.word,
+              date: todayParis,
+            });
+          }
+          console.warn("Personal mode: nothing to propose, falling back to global word");
+        } catch (e) {
+          // Ne jamais casser la page d'accueil : en cas d'erreur on retombe sur le mot global
+          console.error("Personal mode failed, falling back to global word:", e);
+        }
+      }
+    }
+
+    // ── Mode GLOBAL (comportement historique, inchangé)
     // Step 1: Check if we already have a word for today
     const { data: todayWord, error: fetchError } = await supabase
       .from("words")
@@ -43,36 +88,23 @@ Deno.serve(async (req) => {
       .single();
 
     if (fetchError && fetchError.code !== "PGRST116") {
-      // PGRST116 = no rows returned, which is expected if no word set for today
       console.error("Error fetching today's word:", fetchError);
       throw fetchError;
     }
 
-    // If we found a word for today, return it
     if (todayWord) {
-      console.log(`Found existing word for today: ${todayWord.word}`);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          dataVersion: DATA_VERSION,
-          word: {
-            id: todayWord.id,
-            word: todayWord.word,
-            definition: todayWord.definition,
-            exampleSentence: todayWord.example_sentence,
-            category: todayWord.category,
-            register: todayWord.register,
-            gender: todayWord.gender ?? undefined,
-          },
-          date: todayParis,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.log("Found existing word for today: " + todayWord.word);
+      return json({
+        success: true,
+        dataVersion: DATA_VERSION,
+        word: toWordPayload(todayWord),
+        date: todayParis,
+      });
     }
 
     // Step 2: No word for today - select next unshown word (by display_order)
     console.log("No word for today, selecting next unshown word...");
-    
+
     const { data: nextWord, error: nextError } = await supabase
       .from("words")
       .select("*")
@@ -109,7 +141,7 @@ Deno.serve(async (req) => {
     }
 
     // Step 3: Update the selected word's date_shown to today
-    console.log(`Setting date_shown for word: ${selectedWord.word}`);
+    console.log("Setting date_shown for word: " + selectedWord.word);
     const { error: updateError } = await supabase
       .from("words")
       .update({ date_shown: todayParis })
@@ -120,29 +152,15 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        dataVersion: DATA_VERSION,
-        word: {
-          id: selectedWord.id,
-          word: selectedWord.word,
-          definition: selectedWord.definition,
-          exampleSentence: selectedWord.example_sentence,
-          category: selectedWord.category,
-          register: selectedWord.register,
-          gender: selectedWord.gender ?? undefined,
-        },
-        date: todayParis,
-        isNew: true,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({
+      success: true,
+      dataVersion: DATA_VERSION,
+      word: toWordPayload(selectedWord),
+      date: todayParis,
+      isNew: true,
+    });
   } catch (error) {
     console.error("Error in get-daily-word:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: (error as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({ success: false, error: (error as Error).message }, 500);
   }
 });

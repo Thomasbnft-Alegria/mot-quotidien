@@ -14,6 +14,7 @@ interface DBSubscription {
   auth: string;
   enabled: boolean;
   preferred_time: string;
+  user_id?: string | null;
 }
 
 // Convert standard base64 to base64url
@@ -173,16 +174,25 @@ Deno.serve(async (req) => {
     const { hours: currentHours, minutes: currentMinutes, timeString: currentTime } = getParisTime();
     console.log(`[Push] Current Paris time: ${currentTime}, isScheduled=${isScheduled}, isTest=${isTest}`);
 
-    // Dedup: if multiple subscriptions exist, keep only the most recent one
+    // Dedup: une seule subscription (la plus récente) PAR UTILISATEUR.
+    // Les subscriptions non rattachées (user_id NULL, historiques) forment un groupe à part, comme avant.
     const { data: allSubs } = await supabase
       .from('push_subscriptions')
-      .select('id, created_at')
+      .select('id, created_at, user_id')
       .order('created_at', { ascending: false });
 
     if (allSubs && allSubs.length > 1) {
-      const idsToDelete = allSubs.slice(1).map((s: { id: string }) => s.id);
-      await supabase.from('push_subscriptions').delete().in('id', idsToDelete);
-      console.log(`[Push] Dedup: deleted ${idsToDelete.length} old subscription(s), kept most recent`);
+      const seenGroups = new Set<string>();
+      const idsToDelete: string[] = [];
+      for (const s of allSubs as { id: string; user_id: string | null }[]) {
+        const group = s.user_id ?? '__unlinked__';
+        if (seenGroups.has(group)) idsToDelete.push(s.id);
+        else seenGroups.add(group);
+      }
+      if (idsToDelete.length > 0) {
+        await supabase.from('push_subscriptions').delete().in('id', idsToDelete);
+        console.log(`[Push] Dedup: deleted ${idsToDelete.length} old subscription(s), kept most recent per user`);
+      }
     }
 
     // Fetch enabled subscriptions
@@ -236,9 +246,39 @@ Deno.serve(async (req) => {
 
     console.log(`[Push] Processing ${subscriptionsToNotify.length} subscription(s)`);
 
-    // Get today's word
-    const todayWord = await getTodayWord(supabase);
-    const wordName = todayWord ? todayWord.word : 'votre nouveau mot';
+    // Mot global (repli) : calculé une seule fois, et seulement si au moins un abonnement en a besoin
+    let globalWordPromise: Promise<string> | null = null;
+    const getGlobalWordName = (): Promise<string> => {
+      if (!globalWordPromise) {
+        globalWordPromise = getTodayWord(supabase).then((w) => (w ? w.word : 'votre nouveau mot'));
+      }
+      return globalWordPromise;
+    };
+
+    // Mot PERSONNEL d'un utilisateur : appel interne à get-daily-word (clé service + userId).
+    // Retourne null si indisponible -> l'appelant retombe sur le mot global.
+    const getPersonalWordName = async (userId: string): Promise<string | null> => {
+      try {
+        const res = await fetch(supabaseUrl + '/functions/v1/get-daily-word', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + supabaseServiceKey,
+            'apikey': supabaseServiceKey,
+          },
+          body: JSON.stringify({ personal: true, userId }),
+        });
+        if (!res.ok) {
+          console.error('[Push] Personal word HTTP ' + res.status);
+          return null;
+        }
+        const data = await res.json();
+        return data && data.success && data.isPersonal === true && data.word ? data.word.word : null;
+      } catch (err) {
+        console.error('[Push] Personal word failed:', err);
+        return null;
+      }
+    };
 
     // Send push to each subscription
     const results = await Promise.all(
@@ -260,6 +300,11 @@ Deno.serve(async (req) => {
         }
 
         const prefTime = sub.preferred_time ? sub.preferred_time.substring(0, 5) : '??:??';
+
+        // Abonnement rattaché à un utilisateur => son mot personnel ; sinon (ou en cas d'échec) mot global
+        let wordName: string | null = null;
+        if (sub.user_id) wordName = await getPersonalWordName(sub.user_id);
+        if (!wordName) wordName = await getGlobalWordName();
 
         const title = isTest
           ? `Découvrez : ${wordName} (test - heure planifiée : ${prefTime})`

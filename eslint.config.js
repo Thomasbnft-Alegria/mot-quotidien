@@ -5,7 +5,8 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "src/components/ui/**", "supabase/**", "tailwind.config.ts"] },
+  // src/integrations/supabase/** est généré/réécrit par Lovable : ne pas le linter (sinon le lint casse à chaque régénération)
+  { ignores: ["dist", "src/components/ui/**", "src/integrations/supabase/**", "supabase/**", "tailwind.config.ts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
