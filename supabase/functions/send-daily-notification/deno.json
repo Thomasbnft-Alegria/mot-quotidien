@@ -1,4 +1,5 @@
 {
+  "nodeModulesDir": "none",
   "imports": {
     "@block65/webcrypto-web-push": "npm:@block65/webcrypto-web-push@^1"
   }
