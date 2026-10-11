@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildPushPayload } from "npm:@block65/webcrypto-web-push@^1";
+import { buildPushPayload } from "https://esm.sh/@block65/webcrypto-web-push@1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

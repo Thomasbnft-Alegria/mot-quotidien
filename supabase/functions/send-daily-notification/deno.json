@@ -1,6 +1,5 @@
 {
-  "nodeModulesDir": "none",
   "imports": {
-    "@block65/webcrypto-web-push": "npm:@block65/webcrypto-web-push@^1"
+    "@block65/webcrypto-web-push": "https://esm.sh/@block65/webcrypto-web-push@1"
   }
 }
