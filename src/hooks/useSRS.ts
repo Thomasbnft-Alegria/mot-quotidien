@@ -3,8 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Word } from '@/types/word';
 import { format } from 'date-fns';
+import {
+  applyAnswer,
+  buildReviewSession,
+  isCheckDue,
+  NEW_MASTERY_STATE,
+  type MasteryState,
+  type ReviewOutcome,
+  type SRSQuality,
+  type WordStatus,
+} from '@/lib/mastery';
 
-export type SRSQuality = 'easy' | 'good' | 'hard';
+export type { SRSQuality } from '@/lib/mastery';
 
 interface WordReview {
   id: string;
@@ -13,6 +23,53 @@ interface WordReview {
   intervalDays: number;
   repetitions: number;
   nextReviewDate: string;
+  // Maîtrise (réservoir de mots)
+  status: WordStatus;
+  easyCount: number;
+  masteredAt: string | null;
+  checkStage: number;
+  nextCheckDate: string | null;
+}
+
+interface WordReviewRow {
+  id: string;
+  word_id: string;
+  ease_factor: number;
+  interval_days: number;
+  repetitions: number;
+  next_review_date: string;
+  status?: string | null;
+  easy_count?: number | null;
+  mastered_at?: string | null;
+  check_stage?: number | null;
+  next_check_date?: string | null;
+}
+
+function rowToReview(row: WordReviewRow): WordReview {
+  return {
+    id: row.id,
+    wordId: row.word_id,
+    easeFactor: row.ease_factor,
+    intervalDays: row.interval_days,
+    repetitions: row.repetitions,
+    nextReviewDate: row.next_review_date,
+    status: (row.status as WordStatus) ?? 'active',
+    easyCount: row.easy_count ?? 0,
+    masteredAt: row.mastered_at ?? null,
+    checkStage: row.check_stage ?? 0,
+    nextCheckDate: row.next_check_date ?? null,
+  };
+}
+
+function masteryOf(r: WordReview | undefined): MasteryState {
+  if (!r) return { ...NEW_MASTERY_STATE };
+  return {
+    status: r.status,
+    easyCount: r.easyCount,
+    masteredAt: r.masteredAt,
+    checkStage: r.checkStage,
+    nextCheckDate: r.nextCheckDate,
+  };
 }
 
 // SM-2 algorithm
@@ -112,16 +169,7 @@ export function useSRS(allWords: Word[]) {
             .eq('user_id', user.id);
           if (refreshed) {
             const map: Record<string, WordReview> = {};
-            for (const row of refreshed) {
-              map[row.word_id] = {
-                id: row.id,
-                wordId: row.word_id,
-                easeFactor: row.ease_factor,
-                intervalDays: row.interval_days,
-                repetitions: row.repetitions,
-                nextReviewDate: row.next_review_date,
-              };
-            }
+            for (const row of refreshed) map[row.word_id] = rowToReview(row);
             setReviews(map);
           }
           setIsLoaded(true);
@@ -131,16 +179,7 @@ export function useSRS(allWords: Word[]) {
 
       if (data) {
         const map: Record<string, WordReview> = {};
-        for (const row of data) {
-          map[row.word_id] = {
-            id: row.id,
-            wordId: row.word_id,
-            easeFactor: row.ease_factor,
-            intervalDays: row.interval_days,
-            repetitions: row.repetitions,
-            nextReviewDate: row.next_review_date,
-          };
-        }
+        for (const row of data) map[row.word_id] = rowToReview(row);
         setReviews(map);
       }
       setIsLoaded(true);
@@ -149,93 +188,116 @@ export function useSRS(allWords: Word[]) {
     load();
   }, [user]);
 
-  // Always return MAX_REVIEWS_PER_DAY words:
-  // 1. Strictly due today (next_review_date <= today) first
-  // 2. Fill remaining slots with other seen words (oldest reviewed first)
+  // Session de révision : 5 mots maximum, dont au plus 2 "contrôles" de mots maîtrisés (+1 mois / +3 mois).
+  // Le reste : mots actifs dus d'abord, puis les plus proches de leur échéance. Mots ignorés jamais proposés.
   const dueReviews = useCallback((): Word[] => {
     if (!tableExists) return [];
-
-    const allReviews = Object.values(reviews);
-
-    // Words strictly due today
-    const dueIds = new Set(
-      allReviews
-        .filter(r => r.nextReviewDate <= today)
-        .map(r => r.wordId)
+    const ids = buildReviewSession(
+      Object.values(reviews).map((r) => ({
+        wordId: r.wordId,
+        status: r.status,
+        nextReviewDate: r.nextReviewDate,
+        checkStage: r.checkStage,
+        nextCheckDate: r.nextCheckDate,
+        easyCount: r.easyCount,
+        masteredAt: r.masteredAt,
+      })),
+      today,
+      allWords.map((w) => w.id),
+      MAX_REVIEWS_PER_DAY,
     );
-
-    // All other seen words (not yet due), sorted by oldest last review
-    const notDueReviews = allReviews
-      .filter(r => r.nextReviewDate > today)
-      .sort((a, b) => {
-        const aTime = a.nextReviewDate < today ? 0 : new Date(a.nextReviewDate).getTime();
-        const bTime = b.nextReviewDate < today ? 0 : new Date(b.nextReviewDate).getTime();
-        return aTime - bTime; // soonest upcoming first
-      });
-
-    const dueWords = allWords.filter(w => dueIds.has(w.id));
-    const fillIds = new Set(dueWords.map(w => w.id));
-
-    // Fill up to MAX with not-yet-due words
-    const fillWords: Word[] = [];
-    for (const r of notDueReviews) {
-      if (fillWords.length + dueWords.length >= MAX_REVIEWS_PER_DAY) break;
-      const word = allWords.find(w => w.id === r.wordId && !fillIds.has(w.id));
-      if (word) { fillWords.push(word); fillIds.add(word.id); }
-    }
-
-    return [...dueWords, ...fillWords].slice(0, MAX_REVIEWS_PER_DAY);
+    const byId = new Map(allWords.map((w) => [w.id, w] as [string, Word]));
+    return ids.map((id) => byId.get(id)).filter((w): w is Word => !!w);
   }, [reviews, allWords, today, tableExists]);
 
-  // Submit a review result and update SRS schedule
-  const submitReview = useCallback(async (wordId: string, quality: SRSQuality) => {
-    if (!user || !tableExists) return;
+  // État de maîtrise d'un mot (pour l'affichage 1/3 – 3/3 et le libellé "Contrôle")
+  const getMastery = useCallback(
+    (wordId: string): MasteryState & { isCheck: boolean } => {
+      const state = masteryOf(reviews[wordId]);
+      return { ...state, isCheck: isCheckDue(state, today) };
+    },
+    [reviews, today],
+  );
 
-    const existing = reviews[wordId];
-    const q = qualityMap[quality];
+  // Enregistre le résultat d'une réponse en saisie libre.
+  // - correct=false => compté "Difficile" automatiquement, aucun point de maîtrise
+  // - seul "Facile" sur une bonne réponse donne 1 point (3 points = mot maîtrisé)
+  const submitReview = useCallback(
+    async (wordId: string, quality: SRSQuality, correct: boolean): Promise<ReviewOutcome | null> => {
+      if (!user || !tableExists) return null;
 
-    const { easeFactor, intervalDays, repetitions } = sm2(
-      existing?.easeFactor ?? 2.5,
-      existing?.intervalDays ?? 1,
-      existing?.repetitions ?? 0,
-      q
-    );
+      const existing = reviews[wordId];
+      const state = masteryOf(existing);
+      const outcome = applyAnswer(state, { correct, quality }, new Date());
 
-    const nextDate = new Date();
-    nextDate.setDate(nextDate.getDate() + intervalDays);
-    const nextReviewDate = format(nextDate, 'yyyy-MM-dd');
+      // Mot ignoré : jamais modifié
+      if (state.status === 'ignored') return outcome;
 
-    const payload = {
-      user_id: user.id,
-      word_id: wordId,
-      ease_factor: easeFactor,
-      interval_days: intervalDays,
-      repetitions,
-      next_review_date: nextReviewDate,
-      last_reviewed_at: new Date().toISOString(),
-    };
+      const keepSchedule = state.status === 'mastered' && outcome.checkPassed;
+      const sm = keepSchedule
+        ? {
+            easeFactor: existing?.easeFactor ?? 2.5,
+            intervalDays: existing?.intervalDays ?? 1,
+            repetitions: existing?.repetitions ?? 0,
+          }
+        : sm2(
+            existing?.easeFactor ?? 2.5,
+            existing?.intervalDays ?? 1,
+            existing?.repetitions ?? 0,
+            qualityMap[outcome.effectiveQuality],
+          );
 
-    const { error } = await supabase
-      .from('word_reviews')
-      .upsert(payload, { onConflict: 'user_id,word_id' });
+      let nextReviewDate = existing?.nextReviewDate ?? today;
+      if (!keepSchedule) {
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + sm.intervalDays);
+        nextReviewDate = format(nextDate, 'yyyy-MM-dd');
+      }
 
-    if (error) {
-      console.error('[SRS] submitReview error:', error);
-      return;
-    }
+      const payload = {
+        user_id: user.id,
+        word_id: wordId,
+        ease_factor: sm.easeFactor,
+        interval_days: sm.intervalDays,
+        repetitions: sm.repetitions,
+        next_review_date: nextReviewDate,
+        last_reviewed_at: new Date().toISOString(),
+        status: outcome.next.status,
+        easy_count: outcome.next.easyCount,
+        mastered_at: outcome.next.masteredAt,
+        check_stage: outcome.next.checkStage,
+        next_check_date: outcome.next.nextCheckDate,
+      };
 
-    setReviews(prev => ({
-      ...prev,
-      [wordId]: {
-        id: existing?.id ?? '',
-        wordId,
-        easeFactor,
-        intervalDays,
-        repetitions,
-        nextReviewDate,
-      },
-    }));
-  }, [user, reviews, tableExists]);
+      const { error } = await supabase
+        .from('word_reviews')
+        .upsert(payload, { onConflict: 'user_id,word_id' });
+
+      if (error) {
+        console.error('[SRS] submitReview error:', error);
+        return null;
+      }
+
+      setReviews((prev) => ({
+        ...prev,
+        [wordId]: {
+          id: existing?.id ?? '',
+          wordId,
+          easeFactor: sm.easeFactor,
+          intervalDays: sm.intervalDays,
+          repetitions: sm.repetitions,
+          nextReviewDate,
+          status: outcome.next.status,
+          easyCount: outcome.next.easyCount,
+          masteredAt: outcome.next.masteredAt,
+          checkStage: outcome.next.checkStage,
+          nextCheckDate: outcome.next.nextCheckDate,
+        },
+      }));
+      return outcome;
+    },
+    [user, reviews, tableExists, today],
+  );
 
   // Create initial SRS entry after seeing a new word (next review = tomorrow)
   const createReview = useCallback(async (wordId: string) => {
@@ -273,9 +335,10 @@ export function useSRS(allWords: Word[]) {
         intervalDays: 1,
         repetitions: 0,
         nextReviewDate,
+        ...NEW_MASTERY_STATE,
       },
     }));
   }, [user, reviews, tableExists]);
 
-  return { dueReviews, submitReview, createReview, isLoaded, tableExists };
+  return { dueReviews, submitReview, createReview, getMastery, isLoaded, tableExists };
 }
