@@ -4,7 +4,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import type { Word } from '@/types/word';
 
 type Row = Record<string, any>;
-const db: { word_reviews: Row[]; user_progress: Row[]; upserts: Row[] } = { word_reviews: [], user_progress: [], upserts: [] };
+const db: { word_reviews: Row[]; user_progress: Row[]; upserts: Row[]; failUpsert: boolean } = { word_reviews: [], user_progress: [], upserts: [], failUpsert: false };
 
 // L'objet utilisateur doit être stable entre les rendus (comme le vrai useAuth), sinon le chargement boucle.
 const auth = vi.hoisted(() => ({ value: { user: { id: 'u1' } } }));
@@ -18,7 +18,7 @@ vi.mock('@/integrations/supabase/client', () => ({
         select: () => q,
         eq: (k: string, v: unknown) => { filters.push([k, v]); return q; },
         insert: () => Promise.resolve({ error: null }),
-        upsert: (row: Row) => { db.upserts.push(row); return Promise.resolve({ error: null }); },
+        upsert: (row: Row) => { db.upserts.push(row); return Promise.resolve({ error: db.failUpsert ? { message: 'boom' } : null }); },
         then: (res: any, rej: any) => Promise.resolve(run()).then(res, rej),
       };
       return q;
@@ -43,7 +43,7 @@ async function load() {
 }
 
 beforeEach(() => {
-  db.word_reviews = []; db.user_progress = []; db.upserts = [];
+  db.word_reviews = []; db.user_progress = []; db.upserts = []; db.failUpsert = false;
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-02-10T10:00:00Z'));
 });
@@ -123,6 +123,20 @@ describe('useSRS.submitReview — règles de maîtrise enregistrées', () => {
     const { result } = await load();
     await act(async () => { await result.current.submitReview('a', 'easy', true); });
     expect(db.upserts).toHaveLength(0);
+  });
+});
+
+describe('useSRS.submitReview — échec d\'enregistrement', () => {
+  it('renvoie null et ne modifie pas l\'état local quand la base refuse l\'écriture', async () => {
+    db.word_reviews = [review('a', { easy_count: 1 })];
+    const { result } = await load();
+    db.failUpsert = true;
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let outcome: any = 'pas appelé';
+    await act(async () => { outcome = await result.current.submitReview('a', 'easy', true); });
+    spy.mockRestore();
+    expect(outcome).toBeNull();
+    expect(result.current.getMastery('a').easyCount).toBe(1); // inchangé : pas de faux point affiché
   });
 });
 

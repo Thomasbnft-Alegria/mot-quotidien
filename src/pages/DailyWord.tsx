@@ -14,7 +14,7 @@ import { Sparkles, BookOpen, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { NotificationPrompt } from '@/components/NotificationPrompt';
 import { toast } from 'sonner';
-import { MASTERY_TARGET } from '@/lib/mastery';
+import { outcomeMessage } from '@/lib/reviewMessages';
 
 type Phase = 'loading' | 'word' | 'srs' | 'done';
 
@@ -51,16 +51,11 @@ export default function DailyWord() {
     const currentWord = reviewQueue[reviewIndex];
     const outcome = await submitReview(currentWord.id, quality, correct);
 
-    // Messages de progression (maîtrise du mot)
-    if (outcome?.justMastered) {
-      toast.success(`🎉 Mot maîtrisé : ${currentWord.word} !`);
-    } else if (outcome?.checkPassed) {
-      toast.success('Contrôle réussi ✓');
-    } else if (outcome?.checkFailed) {
-      toast('Ce mot repart dans ton réservoir.');
-    } else if (outcome?.pointGained) {
-      toast(`Maîtrise : ${outcome.next.easyCount}/${MASTERY_TARGET}`);
-    }
+    // Messages de progression (maîtrise du mot) ou erreur d'enregistrement
+    const msg = outcomeMessage(outcome, currentWord.word);
+    if (msg?.type === 'success') toast.success(msg.text);
+    else if (msg?.type === 'error') toast.error(msg.text);
+    else if (msg) toast(msg.text);
 
     const nextIndex = reviewIndex + 1;
     if (nextIndex < reviewQueue.length) {

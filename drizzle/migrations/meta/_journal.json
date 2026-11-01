@@ -15,6 +15,13 @@
       "when": 1791732972722,
       "tag": "0001_create_user_daily_word_and_push_user_id",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793530462250,
+      "tag": "0002_split_daily_push_cron_two_slots",
+      "breakpoints": true
     }
   ]
 }
