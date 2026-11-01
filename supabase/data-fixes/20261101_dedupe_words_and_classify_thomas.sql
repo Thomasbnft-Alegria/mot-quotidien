@@ -11,6 +11,8 @@
 DO $mig$
 DECLARE
   dry CONSTANT boolean := true;   -- <<< passer a false pour appliquer pour de vrai
+  expected_groups CONSTANT int := 19;   -- nombre de groupes de doublons attendus (verifie a l'application reelle)
+  target_email CONSTANT text := 'thomas+1@alegria.tech';   -- seul compte classe
   v_groups int; v_words_before int; v_words_after int;
   v_dups text; v_classes text; v_orphans int; v_bad int;
 BEGIN
@@ -19,16 +21,24 @@ BEGIN
   -- Garde-fou : au plus 2 copies par mot
   IF EXISTS (
     SELECT 1 FROM public.words
-    GROUP BY translate(lower(trim(word)), 'àâäéèêëîïôöùûüç', 'aaaeeeeiioouuuc') HAVING count(*) > 2
+    GROUP BY regexp_replace(replace(replace(translate(lower(trim(word)), 'àâäéèêëîïôöùûüçÿñ', 'aaaeeeeiioouuucyn'), 'œ', 'oe'), 'æ', 'ae'), '[^a-z0-9]', '', 'g') HAVING count(*) > 2
   ) THEN
     RAISE EXCEPTION 'Un mot existe en plus de 2 copies : arret, a traiter a la main';
   END IF;
 
-  -- 0. Sauvegardes fraiches
-  CREATE TABLE IF NOT EXISTS public.words_backup_20261101          AS SELECT * FROM public.words;
-  CREATE TABLE IF NOT EXISTS public.word_reviews_backup_20261101   AS SELECT * FROM public.word_reviews;
-  CREATE TABLE IF NOT EXISTS public.user_progress_backup_20261101  AS SELECT * FROM public.user_progress;
-  CREATE TABLE IF NOT EXISTS public.user_daily_word_backup_20261101 AS SELECT * FROM public.user_daily_word;
+  -- Verrou : plus aucune ecriture concurrente sur ces tables pendant la migration
+  LOCK TABLE public.words, public.user_progress, public.word_reviews, public.user_daily_word IN SHARE ROW EXCLUSIVE MODE;
+
+  -- 0. Sauvegardes fraiches. REFUS si l'une existe deja : une 2e application reelle ecraserait la progression
+  -- faite depuis, et une sauvegarde perimee serait reutilisee a tort.
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public'
+             AND table_name IN ('words_backup_20261101','word_reviews_backup_20261101','user_progress_backup_20261101','user_daily_word_backup_20261101')) THEN
+    RAISE EXCEPTION 'Une table *_backup_20261101 existe deja : migration deja appliquee ou sauvegarde perimee. Arret, rien n''a ete modifie.';
+  END IF;
+  CREATE TABLE public.words_backup_20261101           AS SELECT * FROM public.words;
+  CREATE TABLE public.word_reviews_backup_20261101    AS SELECT * FROM public.word_reviews;
+  CREATE TABLE public.user_progress_backup_20261101   AS SELECT * FROM public.user_progress;
+  CREATE TABLE public.user_daily_word_backup_20261101 AS SELECT * FROM public.user_daily_word;
   ALTER TABLE public.words_backup_20261101           ENABLE ROW LEVEL SECURITY;
   ALTER TABLE public.word_reviews_backup_20261101    ENABLE ROW LEVEL SECURITY;
   ALTER TABLE public.user_progress_backup_20261101   ENABLE ROW LEVEL SECURITY;
@@ -37,7 +47,7 @@ BEGIN
   -- A. DOUBLONS ------------------------------------------------------------------------------------------
   CREATE TEMP TABLE _w ON COMMIT DROP AS
   SELECT w.id, w.word, w.display_order, w.created_at,
-         translate(lower(trim(w.word)), 'àâäéèêëîïôöùûüç', 'aaaeeeeiioouuuc') AS norm,
+         regexp_replace(replace(replace(translate(lower(trim(w.word)), 'àâäéèêëîïôöùûüçÿñ', 'aaaeeeeiioouuucyn'), 'œ', 'oe'), 'æ', 'ae'), '[^a-z0-9]', '', 'g') AS norm,
          (SELECT count(*) FROM public.user_progress p WHERE p.word_id = w.id)
        + (SELECT count(*) FROM public.word_reviews  r WHERE r.word_id = w.id) AS refs
   FROM public.words w;
@@ -52,6 +62,10 @@ BEGIN
 
   SELECT count(*), string_agg(word || ' (garde ' || left(canon_id::text, 8) || ', supprime ' || left(dup_id::text, 8) || ')', '; ' ORDER BY word)
     INTO v_groups, v_dups FROM _map;
+
+  IF NOT dry AND v_groups <> expected_groups THEN
+    RAISE EXCEPTION 'Nombre de groupes de doublons inattendu : % (attendu %). Arret, rien n''a ete modifie.', v_groups, expected_groups;
+  END IF;
 
   -- user_progress : cumule la copie dans la ligne conservee quand elle existe, sinon re-pointe
   UPDATE public.user_progress c SET
@@ -76,7 +90,10 @@ BEGIN
     status = d.status, easy_count = d.easy_count, mastered_at = d.mastered_at,
     check_stage = d.check_stage, next_check_date = d.next_check_date
   FROM public.word_reviews d JOIN _map m ON m.dup_id = d.word_id
-  WHERE c.user_id = d.user_id AND c.word_id = m.canon_id AND d.repetitions > c.repetitions;
+  -- etat le plus avance : mot maitrise d'abord, puis etape de controle, puis nombre de Facile, puis repetitions
+  WHERE c.user_id = d.user_id AND c.word_id = m.canon_id
+    AND ROW((d.status = 'mastered'), d.check_stage, d.easy_count, d.repetitions)
+      > ROW((c.status = 'mastered'), c.check_stage, c.easy_count, c.repetitions);
 
   DELETE FROM public.word_reviews d USING _map m
   WHERE d.word_id = m.dup_id
@@ -96,14 +113,14 @@ BEGIN
   END IF;
   IF EXISTS (
     SELECT 1 FROM public.words
-    GROUP BY translate(lower(trim(word)), 'àâäéèêëîïôöùûüç', 'aaaeeeeiioouuuc') HAVING count(*) > 1
+    GROUP BY regexp_replace(replace(replace(translate(lower(trim(word)), 'àâäéèêëîïôöùûüçÿñ', 'aaaeeeeiioouuucyn'), 'œ', 'oe'), 'æ', 'ae'), '[^a-z0-9]', '', 'g') HAVING count(*) > 1
   ) THEN
     RAISE EXCEPTION 'Il reste des doublons apres nettoyage';
   END IF;
 
   -- B. CLASSEMENT DES MOTS DE THOMAS -------------------------------------------------------------------
   CREATE TEMP TABLE _cls ON COMMIT DROP AS
-  WITH u AS (SELECT id FROM auth.users WHERE email ILIKE 'thomas%'),
+  WITH u AS (SELECT id FROM auth.users WHERE email = target_email),
   base AS (
     SELECT u.id AS user_id, w.id AS word_id, w.display_order,
            COALESCE(p.correct_count, 0) AS correct, COALESCE(p.incorrect_count, 0) AS incorrect,
@@ -131,13 +148,15 @@ BEGIN
   FROM _cls WHERE classe = 'maitrise'
   ON CONFLICT (user_id, word_id) DO UPDATE
   SET status = 'mastered', easy_count = 3, mastered_at = now(), check_stage = 0,
-      next_check_date = (current_date + interval '1 month')::date;
+      next_check_date = (current_date + interval '1 month')::date
+  WHERE public.word_reviews.status <> 'mastered';
 
   -- Actifs : statut actif, compteur Facile a zero (l'ancien systeme ne le notait pas)
   INSERT INTO public.word_reviews (user_id, word_id, next_review_date, status, easy_count, mastered_at, check_stage, next_check_date)
   SELECT user_id, word_id, current_date, 'active', 0, NULL, 0, NULL FROM _cls WHERE classe = 'actif'
   ON CONFLICT (user_id, word_id) DO UPDATE
-  SET status = 'active', easy_count = 0, mastered_at = NULL, check_stage = 0, next_check_date = NULL;
+  SET status = 'active', easy_count = 0, mastered_at = NULL, check_stage = 0, next_check_date = NULL
+  WHERE public.word_reviews.status <> 'mastered';
 
   -- Redevenus neufs : plus de ligne de revision + "non vu" (les compteurs bonnes/mauvaises reponses restent)
   DELETE FROM public.word_reviews r USING _cls c
@@ -167,8 +186,8 @@ BEGIN
   FROM (SELECT (SELECT email FROM auth.users WHERE id = c.user_id) AS e, c.classe, count(*) AS nb FROM _cls c GROUP BY 1, 2) q;
 
   IF dry THEN
-    RAISE EXCEPTION 'ESSAI REUSSI (rien n''est enregistre) | mots avant=% apres=% | doublons supprimes=% | classement : % | detail doublons : %',
-      v_words_before, v_words_after, v_groups, v_classes, v_dups;
+    RAISE EXCEPTION 'ESSAI REUSSI (rien n''est enregistre) | mots avant=% apres=% | groupes de doublons=% (attendu % : %) | classement : % | detail doublons : %',
+      v_words_before, v_words_after, v_groups, expected_groups, CASE WHEN v_groups = expected_groups THEN 'OK' ELSE 'ECART - NE PAS APPLIQUER' END, v_classes, v_dups;
   END IF;
 END
 $mig$;
