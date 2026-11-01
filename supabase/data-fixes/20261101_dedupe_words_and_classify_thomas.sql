@@ -16,6 +16,9 @@ DECLARE
   v_groups int; v_words_before int; v_words_after int;
   v_dups text; v_classes text; v_orphans int; v_bad int;
 BEGIN
+  -- Verrou EN PREMIER : plus aucune ecriture concurrente (les lectures de l'app continuent) pendant toute la migration
+  LOCK TABLE public.words, public.user_progress, public.word_reviews, public.user_daily_word IN SHARE ROW EXCLUSIVE MODE;
+
   SELECT count(*) INTO v_words_before FROM public.words;
 
   -- Garde-fou : au plus 2 copies par mot
@@ -25,9 +28,6 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Un mot existe en plus de 2 copies : arret, a traiter a la main';
   END IF;
-
-  -- Verrou : plus aucune ecriture concurrente sur ces tables pendant la migration
-  LOCK TABLE public.words, public.user_progress, public.word_reviews, public.user_daily_word IN SHARE ROW EXCLUSIVE MODE;
 
   -- 0. Sauvegardes fraiches. REFUS si l'une existe deja : une 2e application reelle ecraserait la progression
   -- faite depuis, et une sauvegarde perimee serait reutilisee a tort.
@@ -160,9 +160,10 @@ BEGIN
 
   -- Redevenus neufs : plus de ligne de revision + "non vu" (les compteurs bonnes/mauvaises reponses restent)
   DELETE FROM public.word_reviews r USING _cls c
-  WHERE c.classe = 'nouveau' AND r.user_id = c.user_id AND r.word_id = c.word_id;
+  WHERE c.classe = 'nouveau' AND r.user_id = c.user_id AND r.word_id = c.word_id AND r.status <> 'mastered';
   UPDATE public.user_progress p SET seen = false, seen_date = NULL
-  FROM _cls c WHERE c.classe = 'nouveau' AND p.user_id = c.user_id AND p.word_id = c.word_id;
+  FROM _cls c WHERE c.classe = 'nouveau' AND p.user_id = c.user_id AND p.word_id = c.word_id
+    AND NOT EXISTS (SELECT 1 FROM public.word_reviews r WHERE r.user_id = c.user_id AND r.word_id = c.word_id AND r.status = 'mastered');
 
   -- Verifications finales (une seule suffit a tout annuler)
   SELECT count(*) INTO v_bad FROM (
@@ -171,6 +172,7 @@ BEGIN
   IF v_bad > 0 THEN RAISE EXCEPTION 'Trop de mots actifs pour au moins un compte'; END IF;
 
   SELECT count(*) INTO v_bad FROM _cls c WHERE c.classe = 'nouveau'
+    AND NOT EXISTS (SELECT 1 FROM public.word_reviews m WHERE m.user_id = c.user_id AND m.word_id = c.word_id AND m.status = 'mastered')
     AND (EXISTS (SELECT 1 FROM public.word_reviews r WHERE r.user_id = c.user_id AND r.word_id = c.word_id)
       OR EXISTS (SELECT 1 FROM public.user_progress p WHERE p.user_id = c.user_id AND p.word_id = c.word_id AND p.seen));
   IF v_bad > 0 THEN RAISE EXCEPTION '% mots "nouveaux" ont encore une ligne de revision ou sont marques vus', v_bad; END IF;
