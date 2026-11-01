@@ -13,6 +13,8 @@ import { useQuizWords } from '@/hooks/useQuizWords';
 import { Sparkles, BookOpen, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { NotificationPrompt } from '@/components/NotificationPrompt';
+import { toast } from 'sonner';
+import { MASTERY_TARGET } from '@/lib/mastery';
 
 type Phase = 'loading' | 'word' | 'srs' | 'done';
 
@@ -21,7 +23,7 @@ export default function DailyWord() {
   const { word: todayWord, isLoading: wordLoading, error, refetch } = useDailyWord();
   const { markWordAsSeen, isWordSeen, isLoaded: progressLoaded } = useProgress();
   const { allWords, isLoading: wordsLoading } = useQuizWords();
-  const { dueReviews, submitReview, createReview, isLoaded: srsLoaded } = useSRS(allWords);
+  const { dueReviews, submitReview, createReview, getMastery, isLoaded: srsLoaded } = useSRS(allWords);
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [reviewQueue, setReviewQueue] = useState<typeof allWords>([]);
@@ -45,9 +47,20 @@ export default function DailyWord() {
     }
   }, [progressLoaded, todayWord, isWordSeen]);
 
-  const handleSRSResult = async (quality: SRSQuality) => {
+  const handleSRSResult = async (quality: SRSQuality, correct: boolean) => {
     const currentWord = reviewQueue[reviewIndex];
-    await submitReview(currentWord.id, quality);
+    const outcome = await submitReview(currentWord.id, quality, correct);
+
+    // Messages de progression (maîtrise du mot)
+    if (outcome?.justMastered) {
+      toast.success(`🎉 Mot maîtrisé : ${currentWord.word} !`);
+    } else if (outcome?.checkPassed) {
+      toast.success('Contrôle réussi ✓');
+    } else if (outcome?.checkFailed) {
+      toast('Ce mot repart dans ton réservoir.');
+    } else if (outcome?.pointGained) {
+      toast(`Maîtrise : ${outcome.next.easyCount}/${MASTERY_TARGET}`);
+    }
 
     const nextIndex = reviewIndex + 1;
     if (nextIndex < reviewQueue.length) {
@@ -121,6 +134,10 @@ export default function DailyWord() {
                   word={currentWord}
                   current={reviewIndex + 1}
                   total={reviewQueue.length}
+                  mastery={(() => {
+                    const m = getMastery(currentWord.id);
+                    return { easyCount: m.easyCount, isCheck: m.isCheck, checkStage: m.checkStage };
+                  })()}
                   onResult={handleSRSResult}
                 />
               </motion.div>

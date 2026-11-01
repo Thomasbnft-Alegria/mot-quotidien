@@ -7,12 +7,46 @@ import { Word } from '@/types/word';
 import { SRSQuality } from '@/hooks/useSRS';
 import { CheckCircle, XCircle, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MASTERY_TARGET, CHECK_DELAYS_MONTHS } from '@/lib/mastery';
+
+export interface RecallMastery {
+  /** Nombre de "Facile" cumulés (0 à 3). */
+  easyCount: number;
+  /** Ce mot est un contrôle de mémoire (mot déjà maîtrisé revu à +1 mois / +3 mois). */
+  isCheck: boolean;
+  /** Nombre de contrôles déjà réussis (0 ou 1 quand un contrôle est dû). */
+  checkStage: number;
+}
 
 interface ActiveRecallProps {
   word: Word;
   current: number;
   total: number;
-  onResult: (quality: SRSQuality) => void;
+  mastery?: RecallMastery;
+  /** correct = la saisie correspond au mot. Une réponse fausse est toujours transmise avec 'hard'. */
+  onResult: (quality: SRSQuality, correct: boolean) => void;
+}
+
+function MasteryProgress({ mastery }: { mastery: RecallMastery }) {
+  if (mastery.isCheck) {
+    return (
+      <p data-testid="mastery-progress" className="text-xs text-center text-muted-foreground">
+        Contrôle de mémoire {mastery.checkStage + 1}/{CHECK_DELAYS_MONTHS.length}
+      </p>
+    );
+  }
+  const current = Math.min(mastery.easyCount, MASTERY_TARGET);
+  return (
+    <div data-testid="mastery-progress" className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+      <span>Maîtrise</span>
+      <span className="flex gap-1" aria-hidden="true">
+        {Array.from({ length: MASTERY_TARGET }).map((_, i) => (
+          <span key={i} className={cn('h-2 w-2 rounded-full', i < current ? 'bg-primary' : 'bg-muted')} />
+        ))}
+      </span>
+      <span className="font-semibold text-foreground">{current}/{MASTERY_TARGET}</span>
+    </div>
+  );
 }
 
 // Normalize: lowercase, remove accents, trim
@@ -40,7 +74,7 @@ function maskWord(sentence: string, word: string): string {
   });
 }
 
-export function ActiveRecall({ word, current, total, onResult }: ActiveRecallProps) {
+export function ActiveRecall({ word, current, total, mastery, onResult }: ActiveRecallProps) {
   const [input, setInput] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -91,7 +125,9 @@ export function ActiveRecall({ word, current, total, onResult }: ActiveRecallPro
 
       {/* Header */}
       <div className="text-center">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Révision</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {mastery?.isCheck ? 'Contrôle de mémoire' : 'Révision'}
+        </p>
         <p className="text-lg font-bold text-foreground mt-1">Quel est ce mot ?</p>
       </div>
 
@@ -201,31 +237,50 @@ export function ActiveRecall({ word, current, total, onResult }: ActiveRecallPro
             </div>
           </div>
 
+          {mastery && <MasteryProgress mastery={mastery} />}
+
           {/* Difficulty rating */}
-          <p className="text-sm text-center text-muted-foreground">C'était…</p>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              onClick={() => onResult('hard')}
-              className="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-red-200 bg-red-50 dark:bg-red-950/20 hover:border-red-400 transition-colors"
-            >
-              <span className="text-xl">😓</span>
-              <span className="text-xs font-semibold text-red-600 dark:text-red-400">Difficile</span>
-            </button>
-            <button
-              onClick={() => onResult('good')}
-              className="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 hover:border-yellow-400 transition-colors"
-            >
-              <span className="text-xl">🙂</span>
-              <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">Bien</span>
-            </button>
-            <button
-              onClick={() => onResult('easy')}
-              className="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-green-200 bg-green-50 dark:bg-green-950/20 hover:border-green-400 transition-colors"
-            >
-              <span className="text-xl">😎</span>
-              <span className="text-xs font-semibold text-green-700 dark:text-green-400">Facile</span>
-            </button>
-          </div>
+          {isCorrect ? (
+            <>
+              <p className="text-sm text-center text-muted-foreground">C'était…</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => onResult('hard', true)}
+                  className="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-red-200 bg-red-50 dark:bg-red-950/20 hover:border-red-400 transition-colors"
+                >
+                  <span className="text-xl">😓</span>
+                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">Difficile</span>
+                </button>
+                <button
+                  onClick={() => onResult('good', true)}
+                  className="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 hover:border-yellow-400 transition-colors"
+                >
+                  <span className="text-xl">🙂</span>
+                  <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">Bien</span>
+                </button>
+                <button
+                  onClick={() => onResult('easy', true)}
+                  className="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-green-200 bg-green-50 dark:bg-green-950/20 hover:border-green-400 transition-colors"
+                >
+                  <span className="text-xl">😎</span>
+                  <span className="text-xs font-semibold text-green-700 dark:text-green-400">Facile</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-center text-muted-foreground">
+                Mauvaise réponse : ce mot compte comme difficile.
+              </p>
+              <button
+                onClick={() => onResult('hard', false)}
+                className="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-red-200 bg-red-50 dark:bg-red-950/20 hover:border-red-400 transition-colors"
+              >
+                <span className="text-xl">😓</span>
+                <span className="text-sm font-semibold text-red-600 dark:text-red-400">Difficile</span>
+              </button>
+            </>
+          )}
         </motion.div>
       )}
     </div>
