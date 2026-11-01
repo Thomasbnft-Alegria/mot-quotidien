@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createControllerChangeHandler } from '@/lib/swReload';
 
 export function useServiceWorker() {
   const [isRegistered, setIsRegistered] = useState(false);
@@ -24,17 +25,16 @@ export function useServiceWorker() {
           console.error('Service Worker registration failed:', error);
         });
 
-      // Listen for controllerchange to reload when a new SW takes over.
-      // This fires when the new SW takes control, even if the app was closed
-      // during the update (postMessage would have been missed in that case)
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          refreshing = true;
+      // Listen for controllerchange to reload when a NEW SW takes over (mise à jour).
+      // Le tout premier contrôle (première visite, aucun SW avant) est ignoré : le recharger
+      // effaçait un formulaire de connexion déjà rempli.
+      navigator.serviceWorker.addEventListener(
+        'controllerchange',
+        createControllerChangeHandler(!!navigator.serviceWorker.controller, () => {
           console.log('[SW] Controller changed, reloading...');
           window.location.reload();
-        }
-      });
+        }),
+      );
     }
   }, []);
 
