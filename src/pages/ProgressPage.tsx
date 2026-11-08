@@ -2,10 +2,13 @@ import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { BottomNav } from '@/components/BottomNav';
 import { useProgress } from '@/hooks/useProgress';
-import { BarChart3, Flame, Star, BookOpen } from 'lucide-react';
+import { useReservoirSize } from '@/hooks/useReservoirSize';
+import { countByStatus } from '@/lib/reservoir';
+import { BarChart3, Flame, Star, BookOpen, Layers } from 'lucide-react';
 
 export default function ProgressPage() {
-  const { userProgress, getMasteredCount, wordProgress, isLoaded } = useProgress();
+  const { userProgress, getMasteredCount, wordProgress, isLoaded, reviewStatus } = useProgress();
+  const { size: reservoirSize } = useReservoirSize();
 
   if (!isLoaded) {
     return (
@@ -16,6 +19,9 @@ export default function ProgressPage() {
   }
 
   const masteredCount = getMasteredCount();
+  // Réservoir : mots en cours d'apprentissage / taille maximale choisie dans les Réglages
+  const activeCount = countByStatus(Object.values(reviewStatus)).active;
+  const reservoirPercent = Math.min(100, Math.round((activeCount / reservoirSize) * 100));
   const totalReviewed = Object.values(wordProgress).filter(p => p.lastReviewed).length;
 
   const stats = [
@@ -87,6 +93,36 @@ export default function ProgressPage() {
             </motion.div>
           ))}
         </div>
+
+        {/* Réservoir de mots */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mt-4"
+        >
+          <Card className="border-0 shadow-md" data-testid="reservoir-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <Layers className="w-6 h-6 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground" data-testid="reservoir-count">
+                    {activeCount} / {reservoirSize}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Mots actifs</p>
+                </div>
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={reservoirSize} aria-valuenow={activeCount}>
+                <div className="h-full rounded-full bg-purple-500 transition-all" style={{ width: `${reservoirPercent}%` }} />
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Maîtrise un mot (3 « Facile ») pour libérer une place et découvrir un nouveau mot.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Encouragement message */}
         <motion.div

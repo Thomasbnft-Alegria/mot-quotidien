@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { Word } from '@/types/word';
 import { SRSQuality } from '@/hooks/useSRS';
-import { CheckCircle, XCircle, Lightbulb } from 'lucide-react';
+import { CheckCircle, XCircle, Lightbulb, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MASTERY_TARGET, CHECK_DELAYS_MONTHS } from '@/lib/mastery';
 
@@ -25,6 +25,8 @@ interface ActiveRecallProps {
   mastery?: RecallMastery;
   /** correct = la saisie correspond au mot. Une réponse fausse est toujours transmise avec 'hard'. */
   onResult: (quality: SRSQuality, correct: boolean) => void;
+  /** « Ne plus me présenter ce mot » (mot trop facile). Le bouton n'apparaît que si cette fonction est fournie. */
+  onIgnore?: () => void;
 }
 
 function MasteryProgress({ mastery }: { mastery: RecallMastery }) {
@@ -74,7 +76,7 @@ function maskWord(sentence: string, word: string): string {
   });
 }
 
-export function ActiveRecall({ word, current, total, mastery, onResult }: ActiveRecallProps) {
+export function ActiveRecall({ word, current, total, mastery, onResult, onIgnore }: ActiveRecallProps) {
   const [input, setInput] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -280,6 +282,18 @@ export function ActiveRecall({ word, current, total, mastery, onResult }: Active
                 <span className="text-sm font-semibold text-red-600 dark:text-red-400">Difficile</span>
               </button>
             </>
+          )}
+
+          {onIgnore && (
+            <button
+              type="button"
+              onClick={onIgnore}
+              data-testid="ignore-word"
+              className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+              Ne plus me présenter ce mot
+            </button>
           )}
         </motion.div>
       )}

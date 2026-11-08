@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWordDefinition, insertWordToDatabase, checkWordExists } from '@/hooks/useAddWord';
+import { ReservoirSettings } from '@/components/ReservoirSettings';
 
 interface WordPreview {
   word: string;
@@ -478,6 +479,16 @@ export default function Settings() {
               )}
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Réservoir de mots */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-4"
+        >
+          <ReservoirSettings />
         </motion.div>
 
         {/* Cache */}

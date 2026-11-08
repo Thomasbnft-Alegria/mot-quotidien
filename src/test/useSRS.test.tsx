@@ -140,6 +140,67 @@ describe('useSRS.submitReview — échec d\'enregistrement', () => {
   });
 });
 
+describe('useSRS — ignorer / réactiver un mot', () => {
+  it('ignoreWord : écrit le statut ignored, le mot disparaît des révisions et reste ignoré dans l\'état local', async () => {
+    db.word_reviews = [review('a'), review('b')];
+    const { result } = await load();
+    expect(result.current.dueReviews().map((w) => w.id)).toContain('a');
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.ignoreWord('a'); });
+    expect(ok).toBe(true);
+    expect(db.upserts.at(-1)).toMatchObject({ user_id: 'u1', word_id: 'a', status: 'ignored' });
+    expect(result.current.getMastery('a').status).toBe('ignored');
+    expect(result.current.dueReviews().map((w) => w.id)).not.toContain('a');
+  });
+
+  it('ignoreWord sur un mot sans ligne de révision (mot neuf du jour) : crée la ligne ignorée', async () => {
+    db.word_reviews = [review('a')];
+    const { result } = await load();
+    expect(result.current.hasReview('c')).toBe(false);
+    await act(async () => { await result.current.ignoreWord('c'); });
+    expect(db.upserts.at(-1)).toMatchObject({ word_id: 'c', status: 'ignored' });
+    expect(result.current.hasReview('c')).toBe(true);
+    expect(result.current.getMastery('c').status).toBe('ignored');
+  });
+
+  it("ignoreWord n'écrase PAS les compteurs SM-2 (seules les colonnes envoyées changent)", async () => {
+    db.word_reviews = [review('a', { easy_count: 2, repetitions: 4 })];
+    const { result } = await load();
+    await act(async () => { await result.current.ignoreWord('a'); });
+    const payload = db.upserts.at(-1)!;
+    expect(Object.keys(payload).sort()).toEqual(['next_review_date', 'status', 'user_id', 'word_id']);
+  });
+
+  it('ignoreWord : échec base => false et état local inchangé', async () => {
+    db.word_reviews = [review('a')];
+    const { result } = await load();
+    db.failUpsert = true;
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.ignoreWord('a'); });
+    spy.mockRestore();
+    expect(ok).toBe(false);
+    expect(result.current.getMastery('a').status).toBe('active');
+  });
+
+  it('reactivateWord : le mot redevient actif à 0/3 et revient dans les révisions', async () => {
+    db.word_reviews = [review('a', { status: 'ignored', easy_count: 2 })];
+    const { result } = await load();
+    expect(result.current.dueReviews().map((w) => w.id)).not.toContain('a');
+    await act(async () => { await result.current.reactivateWord('a'); });
+    expect(db.upserts.at(-1)).toMatchObject({ word_id: 'a', status: 'active', easy_count: 0, mastered_at: null, check_stage: 0, next_check_date: null });
+    expect(result.current.getMastery('a')).toMatchObject({ status: 'active', easyCount: 0 });
+    expect(result.current.dueReviews().map((w) => w.id)).toContain('a');
+  });
+
+  it('un mot ignoré ne reçoit aucun point : submitReview ne change rien', async () => {
+    db.word_reviews = [review('a', { status: 'ignored' })];
+    const { result } = await load();
+    await act(async () => { await result.current.submitReview('a', 'easy', true); });
+    expect(db.upserts).toHaveLength(0);
+  });
+});
+
 describe('useSRS.dueReviews — composition de la session', () => {
   it('max 2 contrôles, mots ignorés exclus, contrôles pas encore dus exclus', async () => {
     const chk = (id: string, date: string) => review(id, { status: 'mastered', easy_count: 3, mastered_at: '2026-01-01T00:00:00.000Z', next_check_date: date, next_review_date: '2099-01-01' });
