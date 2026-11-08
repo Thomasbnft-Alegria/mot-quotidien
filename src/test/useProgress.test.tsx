@@ -145,3 +145,13 @@ describe('useProgress.recordActivity — série de jours', () => {
     expect(db.streakUpserts).toHaveLength(0);
   });
 });
+
+describe('useProgress.getWeeklyWords — exclut les mots maîtrisés et ignorés', () => {
+  it('ne garde que les mots vus cette semaine, ni maîtrisés ni ignorés', async () => {
+    const seen = (id: string) => ({ word_id: id, seen: true, seen_date: '2026-11-04', correct_count: 0, incorrect_count: 0, last_reviewed: null });
+    db.user_progress = [seen('a'), seen('b'), seen('c'), seen('d'), { ...seen('e'), seen_date: '2026-10-01' }];
+    db.word_reviews = [{ word_id: 'a', status: 'mastered' }, { word_id: 'b', status: 'ignored' }, { word_id: 'c', status: 'active' }];
+    const { result } = await load();
+    expect(result.current.getWeeklyWords(['a', 'b', 'c', 'd', 'e'].map(W)).map((w) => w.id).sort()).toEqual(['c', 'd']);
+  });
+});

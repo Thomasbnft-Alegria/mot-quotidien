@@ -58,6 +58,12 @@ describe('isReinforceWord', () => {
     expect(isReinforceWord({ seen: false, seenDate: null }, today)).toBe(false);
     expect(isReinforceWord(undefined, today)).toBe(false);
   });
+  it("fuseaux : un mot vu « aujourd'hui » à l'heure de Paris OU à l'heure locale n'est pas à renforcer (Kuala Lumpur 03h le 9 = Paris 20h le 8)", () => {
+    const local = '2026-11-09', paris = '2026-11-08';
+    expect(isReinforceWord({ seen: true, seenDate: paris }, local, paris)).toBe(false);
+    expect(isReinforceWord({ seen: true, seenDate: local }, local, paris)).toBe(false);
+    expect(isReinforceWord({ seen: true, seenDate: '2026-11-07' }, local, paris)).toBe(true);
+  });
   it('vu mais sans date (donnée ancienne) => on ne le traite pas comme à renforcer', () => {
     expect(isReinforceWord({ seen: true, seenDate: null }, today)).toBe(false);
   });

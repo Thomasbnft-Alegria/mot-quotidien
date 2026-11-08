@@ -208,12 +208,14 @@ export function useProgress() {
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
     return allWords.filter(w => {
+      const status = reviewStatus[w.id];
+      if (status === 'mastered' || status === 'ignored') return false;
       const progress = wordProgress[w.id];
       if (!progress?.seenDate) return false;
       const seenDate = parseISO(progress.seenDate);
       return isWithinInterval(seenDate, { start: weekStart, end: weekEnd });
     });
-  }, [wordProgress]);
+  }, [wordProgress, reviewStatus]);
 
   const isWeeklyReviewAvailable = useCallback(() => true, []);
 

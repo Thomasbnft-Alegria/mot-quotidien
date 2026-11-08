@@ -44,8 +44,11 @@ export interface SeenInfo {
  * (réservoir plein => on revoit le mot le moins assimilé). Un mot découvert AUJOURD'HUI reste un mot neuf,
  * même après rechargement de la page.
  */
-export function isReinforceWord(progress: SeenInfo | null | undefined, today: string): boolean {
-  return !!progress && progress.seen && progress.seenDate !== null && progress.seenDate !== today;
+export function isReinforceWord(progress: SeenInfo | null | undefined, today: string, alsoToday?: string): boolean {
+  // seen_date est une date LOCALE (appareil), le mot du jour suit la date de Paris : un mot vu « aujourd'hui »
+  // peut porter l'une ou l'autre date selon le fuseau. On ne le traite comme « à renforcer » que s'il diffère des deux.
+  if (!progress || !progress.seen || progress.seenDate === null) return false;
+  return progress.seenDate !== today && progress.seenDate !== alsoToday;
 }
 
 export interface StatusCounts {

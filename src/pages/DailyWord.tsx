@@ -52,7 +52,8 @@ export default function DailyWord() {
   // Mot déjà connu (vu un autre jour) : réservoir plein, on renforce le mot le moins assimilé.
   // Un mot découvert aujourd'hui reste un mot neuf, même après rechargement de la page.
   const todayLocal = format(new Date(), 'yyyy-MM-dd');
-  const isReinforce = !!todayWord && isReinforceWord(wordProgress[todayWord.id], todayLocal);
+  const todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const isReinforce = !!todayWord && isReinforceWord(wordProgress[todayWord.id], todayLocal, todayParis);
   const isIgnored = !!todayWord && getMastery(todayWord.id).status === 'ignored';
 
   // Passe au mot suivant de la session ; à la fin, retour au mot du jour et la journée compte pour la série.
