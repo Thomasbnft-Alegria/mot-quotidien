@@ -106,3 +106,35 @@ describe('ActiveRecall — contrôle de mémoire', () => {
     expect(screen.queryByText('Contrôle de mémoire')).toBeNull();
   });
 });
+
+describe('ActiveRecall — ne plus me présenter ce mot', () => {
+  it("n'affiche pas le bouton sans onIgnore", () => {
+    setup();
+    answer('Ébaudir');
+    expect(screen.queryByTestId('ignore-word')).toBeNull();
+  });
+
+  it('affiche le bouton après une bonne réponse et appelle onIgnore SANS enregistrer de note', () => {
+    const onIgnore = vi.fn();
+    const onResult = setup({ onIgnore });
+    answer('Ébaudir');
+    fireEvent.click(screen.getByTestId('ignore-word'));
+    expect(onIgnore).toHaveBeenCalledTimes(1);
+    expect(onResult).not.toHaveBeenCalled();
+  });
+
+  it('affiche aussi le bouton après une mauvaise réponse', () => {
+    const onIgnore = vi.fn();
+    const onResult = setup({ onIgnore });
+    answer('mauvais');
+    expect(screen.getByText('Ne plus me présenter ce mot')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('ignore-word'));
+    expect(onIgnore).toHaveBeenCalledTimes(1);
+    expect(onResult).not.toHaveBeenCalled();
+  });
+
+  it("n'affiche pas le bouton avant la validation de la saisie", () => {
+    setup({ onIgnore: vi.fn() });
+    expect(screen.queryByTestId('ignore-word')).toBeNull();
+  });
+});

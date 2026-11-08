@@ -10,7 +10,9 @@ import { useProgress } from '@/hooks/useProgress';
 import { useDailyWord } from '@/hooks/useDailyWord';
 import { useSRS, SRSQuality } from '@/hooks/useSRS';
 import { useQuizWords } from '@/hooks/useQuizWords';
-import { Sparkles, BookOpen, RefreshCw } from 'lucide-react';
+import { Sparkles, BookOpen, RefreshCw, EyeOff } from 'lucide-react';
+import { format } from 'date-fns';
+import { isReinforceWord } from '@/lib/reservoir';
 import { useNavigate } from 'react-router-dom';
 import { NotificationPrompt } from '@/components/NotificationPrompt';
 import { toast } from 'sonner';
@@ -21,9 +23,9 @@ type Phase = 'loading' | 'word' | 'srs' | 'done';
 export default function DailyWord() {
   const navigate = useNavigate();
   const { word: todayWord, isLoading: wordLoading, error, refetch } = useDailyWord();
-  const { markWordAsSeen, isWordSeen, isLoaded: progressLoaded } = useProgress();
+  const { markWordAsSeen, isWordSeen, wordProgress, recordActivity, isLoaded: progressLoaded } = useProgress();
   const { allWords, isLoading: wordsLoading } = useQuizWords();
-  const { dueReviews, submitReview, createReview, getMastery, isLoaded: srsLoaded } = useSRS(allWords);
+  const { dueReviews, submitReview, createReview, getMastery, ignoreWord, isLoaded: srsLoaded } = useSRS(allWords);
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [reviewQueue, setReviewQueue] = useState<typeof allWords>([]);
@@ -47,6 +49,61 @@ export default function DailyWord() {
     }
   }, [progressLoaded, todayWord, isWordSeen]);
 
+  // Mot déjà connu (vu un autre jour) : réservoir plein, on renforce le mot le moins assimilé.
+  // Un mot découvert aujourd'hui reste un mot neuf, même après rechargement de la page.
+  const todayLocal = format(new Date(), 'yyyy-MM-dd');
+  const todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const isReinforce = !!todayWord && isReinforceWord(wordProgress[todayWord.id], todayLocal, todayParis);
+  const isIgnored = !!todayWord && getMastery(todayWord.id).status === 'ignored';
+
+  // Passe au mot suivant de la session ; à la fin, retour au mot du jour et la journée compte pour la série.
+  const advanceSession = () => {
+    const nextIndex = reviewIndex + 1;
+    if (nextIndex < reviewQueue.length) {
+      setReviewIndex(nextIndex);
+    } else {
+      // All reviews done → back to word of the day
+      setSrsSessionDone(true);
+      setHasSeenToday(true);
+      setPhase('word');
+      void recordActivity();
+    }
+  };
+
+  const confirmIgnore = (wordName: string) =>
+    window.confirm(`Ne plus te présenter « ${wordName} » ? Tu pourras le réactiver dans les Réglages.`);
+
+  const handleIgnoreInSession = async () => {
+    const currentWord = reviewQueue[reviewIndex];
+    if (!confirmIgnore(currentWord.word)) return;
+    const ok = await ignoreWord(currentWord.id);
+    if (!ok) {
+      toast.error("Impossible d'enregistrer ce choix. Réessaie.");
+      return;
+    }
+    toast.success('Ce mot ne te sera plus présenté.');
+    advanceSession();
+  };
+
+  const handleIgnoreToday = async () => {
+    if (!todayWord || !confirmIgnore(todayWord.word)) return;
+    const ok = await ignoreWord(todayWord.id);
+    if (ok) toast.success('Ce mot ne te sera plus présenté.');
+    else toast.error("Impossible d'enregistrer ce choix. Réessaie.");
+  };
+
+  const startReview = () => {
+    const due = dueReviews();
+    if (due.length > 0) {
+      setReviewQueue(due);
+      setReviewIndex(0);
+      setSrsSessionDone(false);
+      setPhase('srs');
+    } else {
+      navigate('/quiz');
+    }
+  };
+
   const handleSRSResult = async (quality: SRSQuality, correct: boolean) => {
     const currentWord = reviewQueue[reviewIndex];
     const outcome = await submitReview(currentWord.id, quality, correct);
@@ -57,15 +114,7 @@ export default function DailyWord() {
     else if (msg?.type === 'error') toast.error(msg.text);
     else if (msg) toast(msg.text);
 
-    const nextIndex = reviewIndex + 1;
-    if (nextIndex < reviewQueue.length) {
-      setReviewIndex(nextIndex);
-    } else {
-      // All reviews done → back to word of the day (already seen)
-      setSrsSessionDone(true);
-      setHasSeenToday(true);
-      setPhase('word');
-    }
+    advanceSession();
   };
 
   const handleMarkSeen = async () => {
@@ -134,6 +183,7 @@ export default function DailyWord() {
                     return { easyCount: m.easyCount, isCheck: m.isCheck, checkStage: m.checkStage };
                   })()}
                   onResult={handleSRSResult}
+                  onIgnore={handleIgnoreInSession}
                 />
               </motion.div>
             </AnimatePresence>
@@ -170,7 +220,9 @@ export default function DailyWord() {
             <span className="text-sm font-medium uppercase tracking-wider">Mot du jour</span>
           </div>
           <p className="text-muted-foreground text-sm">
-            Découvrez un nouveau mot chaque jour
+            {isReinforce
+              ? 'Ton réservoir est plein : on renforce le mot que tu maîtrises le moins'
+              : 'Découvrez un nouveau mot chaque jour'}
           </p>
         </motion.div>
 
@@ -238,7 +290,17 @@ export default function DailyWord() {
           transition={{ delay: 0.9 }}
           className="mt-8 flex flex-col gap-3"
         >
-          {!hasSeenToday ? (
+          {isIgnored ? (
+            <>
+              <div data-testid="ignored-message" className="text-center text-muted-foreground font-medium mb-2">
+                Ce mot ne te sera plus présenté. Un nouveau mot arrive demain.
+              </div>
+              <Button size="lg" variant="outline" onClick={startReview} className="w-full h-14 text-lg font-medium gap-2">
+                <BookOpen className="w-5 h-5" />
+                Réviser
+              </Button>
+            </>
+          ) : !hasSeenToday && !isReinforce ? (
             <Button
               size="lg"
               onClick={handleMarkSeen}
@@ -248,29 +310,29 @@ export default function DailyWord() {
             </Button>
           ) : (
             <>
-              <div className="text-center text-success font-medium mb-2">
-                ✓ Mot appris aujourd'hui
-              </div>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => {
-                  const due = dueReviews();
-                  if (due.length > 0) {
-                    setReviewQueue(due);
-                    setReviewIndex(0);
-                    setSrsSessionDone(false);
-                    setPhase('srs');
-                  } else {
-                    navigate('/quiz');
-                  }
-                }}
-                className="w-full h-14 text-lg font-medium gap-2"
+              <div
+                data-testid={isReinforce ? 'reinforce-message' : 'learned-message'}
+                className={isReinforce ? 'text-center text-primary font-medium mb-2' : 'text-center text-success font-medium mb-2'}
               >
+                {isReinforce ? 'À renforcer aujourd\'hui' : '✓ Mot appris aujourd\'hui'}
+              </div>
+              <Button size="lg" variant="outline" onClick={startReview} className="w-full h-14 text-lg font-medium gap-2">
                 <BookOpen className="w-5 h-5" />
                 Réviser
               </Button>
             </>
+          )}
+
+          {!isIgnored && todayWord && (
+            <button
+              type="button"
+              onClick={handleIgnoreToday}
+              data-testid="ignore-today"
+              className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+              Ne plus me présenter ce mot
+            </button>
           )}
         </motion.div>
       </div>

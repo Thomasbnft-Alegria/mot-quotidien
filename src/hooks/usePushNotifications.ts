@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { saveSubscriptionRecord, linkSubscriptionToUser } from '@/lib/pushSubscription';
 
 const NOTIFICATION_ASKED_KEY = 'notification_permission_asked';
 const SUBSCRIPTION_ENDPOINT_KEY = 'push_subscription_endpoint';
@@ -12,6 +14,8 @@ const VAPID_PUBLIC_KEY = 'BJdFoUcnZB61ko_lThX8reUBGYedkJ7xTVSIXGCXjpfrWIl1muCEim
 type PermissionStatus = 'default' | 'granted' | 'denied' | 'unsupported';
 
 export function usePushNotifications() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [hasBeenAsked, setHasBeenAsked] = useState(false);
@@ -68,6 +72,16 @@ export function usePushNotifications() {
     };
     warmUpSw();
   }, []);
+
+  // Abonnement créé avant que les abonnements soient liés aux comptes : on le rattache automatiquement à
+  // l'utilisateur connecté (sans lui demander de réactiver les notifications). Un abonnement déjà rattaché à un
+  // autre compte n'est jamais modifié.
+  useEffect(() => {
+    if (!userId) return;
+    const endpoint = localStorage.getItem(SUBSCRIPTION_ENDPOINT_KEY);
+    if (!endpoint) return;
+    void linkSubscriptionToUser(supabase, endpoint, userId);
+  }, [userId]);
 
   // Silently renew the push subscription if the browser invalidated it without telling us.
   // This is the most common cause of "notifications stopped working" without any code change:
@@ -222,37 +236,10 @@ export function usePushNotifications() {
 
   const saveSubscription = async (endpoint: string, p256dh: string, auth: string): Promise<void> => {
     const timeForDb = `${preferredTimeRef.current}:00`;
-
-    const { data: existing } = await supabase
-      .from('push_subscriptions')
-      .select('id')
-      .eq('endpoint', endpoint)
-      .single();
-
-    if (existing) {
-      await supabase
-        .from('push_subscriptions')
-        .update({ p256dh, auth, enabled: true, preferred_time: timeForDb })
-        .eq('endpoint', endpoint);
-      console.log('[Push] Updated existing subscription in DB');
-    } else {
-      // New endpoint — delete all old subscriptions to avoid duplicate notifications
-      const { data: oldSubs } = await supabase
-        .from('push_subscriptions')
-        .select('id, endpoint')
-        .neq('endpoint', endpoint);
-      if (oldSubs && oldSubs.length > 0) {
-        await supabase
-          .from('push_subscriptions')
-          .delete()
-          .neq('endpoint', endpoint);
-        console.log(`[Push] Deleted ${oldSubs.length} old subscription(s) before inserting new one`);
-      }
-      await supabase
-        .from('push_subscriptions')
-        .insert({ endpoint, p256dh, auth, enabled: true, preferred_time: timeForDb });
-      console.log('[Push] Inserted new subscription in DB');
-    }
+    // L'abonnement est rattaché au compte (la notification annonce SON mot du jour) ; les abonnements des
+    // autres comptes ne sont jamais supprimés. Voir lib/pushSubscription.ts.
+    const result = await saveSubscriptionRecord(supabase, { endpoint, p256dh, auth, preferredTime: timeForDb, userId });
+    console.log(`[Push] ${result === 'updated' ? 'Updated existing' : 'Inserted new'} subscription in DB`);
 
     localStorage.setItem(SUBSCRIPTION_ENDPOINT_KEY, endpoint);
     setIsSubscribed(true);

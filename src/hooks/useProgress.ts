@@ -28,16 +28,25 @@ export function useProgress() {
     totalWordsSeen: 0,
   });
   const [isLoaded, setIsLoaded] = useState(false);
+  // Statut de chaque mot dans le réservoir (word_reviews.status) : 'active' | 'mastered' | 'ignored'
+  const [reviewStatus, setReviewStatus] = useState<Record<string, string>>({});
 
   // Load from Supabase
   useEffect(() => {
     if (!user) { setIsLoaded(true); return; }
 
     const load = async () => {
-      const [progressRes, streakRes] = await Promise.all([
+      const [progressRes, streakRes, reviewsRes] = await Promise.all([
         supabase.from('user_progress').select('*').eq('user_id', user.id),
         supabase.from('user_streaks').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('word_reviews').select('word_id, status').eq('user_id', user.id),
       ]);
+
+      if (reviewsRes.data) {
+        const statusMap: Record<string, string> = {};
+        for (const row of reviewsRes.data) statusMap[row.word_id] = row.status ?? 'active';
+        setReviewStatus(statusMap);
+      }
 
       if (progressRes.data) {
         const map: Record<string, WordProgressData> = {};
@@ -163,9 +172,9 @@ export function useProgress() {
     const seenWords = allWords.filter(w => {
       const p = wordProgress[w.id];
       if (!p?.seen) return false;
-      // Exclude mastered words: ≥3 correct AND ≥75% success rate
-      const total = (p.correctCount || 0) + (p.incorrectCount || 0);
-      if (total > 0 && p.correctCount >= 3 && (p.correctCount / total) >= 0.75) return false;
+      // Exclut les mots maîtrisés (3 « Facile » en saisie libre) et les mots que l'utilisateur ne veut plus voir
+      const status = reviewStatus[w.id];
+      if (status === 'mastered' || status === 'ignored') return false;
       return true;
     });
     if (seenWords.length === 0) return [];
@@ -191,7 +200,7 @@ export function useProgress() {
     // Sort by score descending (highest priority first), pick top `count`
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, Math.min(count, scored.length)).map(s => s.word);
-  }, [wordProgress]);
+  }, [wordProgress, reviewStatus]);
 
   const getWeeklyWords = useCallback((allWords: Word[]) => {
     const now = new Date();
@@ -199,12 +208,14 @@ export function useProgress() {
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
     return allWords.filter(w => {
+      const status = reviewStatus[w.id];
+      if (status === 'mastered' || status === 'ignored') return false;
       const progress = wordProgress[w.id];
       if (!progress?.seenDate) return false;
       const seenDate = parseISO(progress.seenDate);
       return isWithinInterval(seenDate, { start: weekStart, end: weekEnd });
     });
-  }, [wordProgress]);
+  }, [wordProgress, reviewStatus]);
 
   const isWeeklyReviewAvailable = useCallback(() => true, []);
 
@@ -268,13 +279,34 @@ export function useProgress() {
     });
   }, [user]);
 
+  // Mots maîtrisés = 3 « Facile » sur bonne réponse en saisie libre (statut 'mastered'), comme dans le réservoir.
   const getMasteredCount = useCallback(() => {
-    return Object.values(wordProgress).filter(p => {
-      const total = p.correctCount + p.incorrectCount;
-      // Mastered = at least 3 correct answers AND ≥75% success rate
-      return p.correctCount >= 3 && total > 0 && (p.correctCount / total) >= 0.75;
-    }).length;
-  }, [wordProgress]);
+    return Object.values(reviewStatus).filter(s => s === 'mastered').length;
+  }, [reviewStatus]);
+
+  // Compte la journée comme active (série de jours) sans toucher au compteur de mots découverts.
+  // Nécessaire quand le mot du jour est un mot déjà connu : l'utilisateur ne clique pas « J'ai compris ».
+  const recordActivity = useCallback(async () => {
+    if (!user) return;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    if (userProgress.lastActiveDate === today) return; // déjà compté aujourd'hui
+    const lastActive = userProgress.lastActiveDate ? parseISO(userProgress.lastActiveDate) : null;
+    const wasActiveYesterday = lastActive && differenceInDays(new Date(), lastActive) === 1;
+    const newStreak = wasActiveYesterday ? userProgress.currentStreak + 1 : 1;
+
+    await supabase.from('user_streaks').upsert({
+      user_id: user.id,
+      current_streak: newStreak,
+      last_active_date: today,
+      total_words_seen: userProgress.totalWordsSeen,
+    }, { onConflict: 'user_id' });
+
+    setUserProgress({
+      currentStreak: newStreak,
+      lastActiveDate: today,
+      totalWordsSeen: userProgress.totalWordsSeen,
+    });
+  }, [user, userProgress]);
 
   return {
     wordProgress,
@@ -289,5 +321,7 @@ export function useProgress() {
     recordWeeklyReviewCompletion,
     getMasteredCount,
     isWordSeen,
+    reviewStatus,
+    recordActivity,
   };
 }

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Word } from '@/types/word';
 import { format } from 'date-fns';
+import { ignorePayload, reactivatePayload } from '@/lib/wordStatus';
 import {
   applyAnswer,
   buildReviewSession,
@@ -340,5 +341,66 @@ export function useSRS(allWords: Word[]) {
     }));
   }, [user, reviews, tableExists]);
 
-  return { dueReviews, submitReview, createReview, getMastery, isLoaded, tableExists };
+  // Le mot a-t-il déjà une ligne de révision (= il fait ou a fait partie du réservoir) ?
+  const hasReview = useCallback((wordId: string): boolean => !!reviews[wordId], [reviews]);
+
+  // « Ne plus me présenter ce mot » : le mot passe en statut 'ignored' (jamais proposé, ni comme mot neuf ni en révision,
+  // et il ne compte plus dans le réservoir). Réversible via reactivateWord (Réglages).
+  const ignoreWord = useCallback(async (wordId: string): Promise<boolean> => {
+    if (!user || !tableExists) return false;
+    const existing = reviews[wordId];
+    const { error } = await supabase
+      .from('word_reviews')
+      .upsert(ignorePayload(user.id, wordId, today), { onConflict: 'user_id,word_id' });
+    if (error) {
+      console.error('[SRS] ignoreWord error:', error);
+      return false;
+    }
+    setReviews((prev) => ({
+      ...prev,
+      [wordId]: {
+        id: existing?.id ?? '',
+        wordId,
+        easeFactor: existing?.easeFactor ?? 2.5,
+        intervalDays: existing?.intervalDays ?? 1,
+        repetitions: existing?.repetitions ?? 0,
+        nextReviewDate: today,
+        status: 'ignored',
+        easyCount: existing?.easyCount ?? 0,
+        masteredAt: existing?.masteredAt ?? null,
+        checkStage: existing?.checkStage ?? 0,
+        nextCheckDate: existing?.nextCheckDate ?? null,
+      },
+    }));
+    return true;
+  }, [user, reviews, tableExists, today]);
+
+  // Réactive un mot ignoré : il redevient actif et repart de 0/3. Il peut faire dépasser la taille du réservoir :
+  // cela retarde seulement l'arrivée de nouveaux mots, rien n'est supprimé.
+  const reactivateWord = useCallback(async (wordId: string): Promise<boolean> => {
+    if (!user || !tableExists) return false;
+    const existing = reviews[wordId];
+    const { error } = await supabase
+      .from('word_reviews')
+      .upsert(reactivatePayload(user.id, wordId, today), { onConflict: 'user_id,word_id' });
+    if (error) {
+      console.error('[SRS] reactivateWord error:', error);
+      return false;
+    }
+    setReviews((prev) => ({
+      ...prev,
+      [wordId]: {
+        id: existing?.id ?? '',
+        wordId,
+        easeFactor: existing?.easeFactor ?? 2.5,
+        intervalDays: existing?.intervalDays ?? 1,
+        repetitions: existing?.repetitions ?? 0,
+        nextReviewDate: today,
+        ...NEW_MASTERY_STATE,
+      },
+    }));
+    return true;
+  }, [user, reviews, tableExists, today]);
+
+  return { dueReviews, submitReview, createReview, getMastery, hasReview, ignoreWord, reactivateWord, isLoaded, tableExists };
 }
