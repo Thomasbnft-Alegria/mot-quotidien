@@ -82,6 +82,27 @@ export type Database = {
           },
         ]
       }
+      user_daily_word_backup_20261101: {
+        Row: {
+          created_at: string | null
+          user_id: string | null
+          word_date: string | null
+          word_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          user_id?: string | null
+          word_date?: string | null
+          word_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          user_id?: string | null
+          word_date?: string | null
+          word_id?: string | null
+        }
+        Relationships: []
+      }
       user_progress: {
         Row: {
           correct_count: number
@@ -130,6 +151,45 @@ export type Database = {
         ]
       }
       user_progress_backup_20261011: {
+        Row: {
+          correct_count: number | null
+          created_at: string | null
+          id: string | null
+          incorrect_count: number | null
+          last_reviewed: string | null
+          seen: boolean | null
+          seen_date: string | null
+          updated_at: string | null
+          user_id: string | null
+          word_id: string | null
+        }
+        Insert: {
+          correct_count?: number | null
+          created_at?: string | null
+          id?: string | null
+          incorrect_count?: number | null
+          last_reviewed?: string | null
+          seen?: boolean | null
+          seen_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          word_id?: string | null
+        }
+        Update: {
+          correct_count?: number | null
+          created_at?: string | null
+          id?: string | null
+          incorrect_count?: number | null
+          last_reviewed?: string | null
+          seen?: boolean | null
+          seen_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          word_id?: string | null
+        }
+        Relationships: []
+      }
+      user_progress_backup_20261101: {
         Row: {
           correct_count: number | null
           created_at: string | null
@@ -341,6 +401,57 @@ export type Database = {
         }
         Relationships: []
       }
+      word_reviews_backup_20261101: {
+        Row: {
+          check_stage: number | null
+          created_at: string | null
+          ease_factor: number | null
+          easy_count: number | null
+          id: string | null
+          interval_days: number | null
+          last_reviewed_at: string | null
+          mastered_at: string | null
+          next_check_date: string | null
+          next_review_date: string | null
+          repetitions: number | null
+          status: string | null
+          user_id: string | null
+          word_id: string | null
+        }
+        Insert: {
+          check_stage?: number | null
+          created_at?: string | null
+          ease_factor?: number | null
+          easy_count?: number | null
+          id?: string | null
+          interval_days?: number | null
+          last_reviewed_at?: string | null
+          mastered_at?: string | null
+          next_check_date?: string | null
+          next_review_date?: string | null
+          repetitions?: number | null
+          status?: string | null
+          user_id?: string | null
+          word_id?: string | null
+        }
+        Update: {
+          check_stage?: number | null
+          created_at?: string | null
+          ease_factor?: number | null
+          easy_count?: number | null
+          id?: string | null
+          interval_days?: number | null
+          last_reviewed_at?: string | null
+          mastered_at?: string | null
+          next_check_date?: string | null
+          next_review_date?: string | null
+          repetitions?: number | null
+          status?: string | null
+          user_id?: string | null
+          word_id?: string | null
+        }
+        Relationships: []
+      }
       words: {
         Row: {
           category: string
@@ -377,6 +488,45 @@ export type Database = {
           id?: string
           register?: string
           word?: string
+        }
+        Relationships: []
+      }
+      words_backup_20261101: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          date_shown: string | null
+          definition: string | null
+          display_order: number | null
+          example_sentence: string | null
+          gender: string | null
+          id: string | null
+          register: string | null
+          word: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          date_shown?: string | null
+          definition?: string | null
+          display_order?: number | null
+          example_sentence?: string | null
+          gender?: string | null
+          id?: string | null
+          register?: string | null
+          word?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          date_shown?: string | null
+          definition?: string | null
+          display_order?: number | null
+          example_sentence?: string | null
+          gender?: string | null
+          id?: string | null
+          register?: string | null
+          word?: string | null
         }
         Relationships: []
       }
