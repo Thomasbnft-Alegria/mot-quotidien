@@ -1,6 +1,14 @@
 // Sélection du mot du jour PERSONNEL (réservoir). Module pur : aucune dépendance Deno/Node, testé avec Vitest.
 export interface WordRow { id: string; display_order: number | null }
-export interface ReviewRow { word_id: string; status: string | null; last_reviewed_at: string | null }
+export interface ReviewRow {
+  word_id: string;
+  status: string | null;
+  last_reviewed_at: string | null;
+  easy_count?: number | null;
+  ease_factor?: number | null;
+}
+/** Nombre de jours pendant lesquels un mot déjà montré ne peut pas redevenir le mot du jour (réservoir plein). */
+export const ROTATION_DAYS = 5;
 export interface ProgressRow {
   word_id: string;
   seen: boolean;
@@ -31,19 +39,28 @@ function leastAssimilated(
   words: Map<string, WordRow>,
   progress: Map<string, ProgressRow>,
   reviews: Map<string, ReviewRow>,
+  recentIds: Set<string>,
 ): string | null {
-  const scored = activeIds
-    .filter((id) => words.has(id))
+  const known = activeIds.filter((id) => words.has(id));
+  // Rotation : on écarte les mots montrés récemment, sauf s'il n'en reste aucun autre
+  const fresh = known.filter((id) => !recentIds.has(id));
+  const pool = fresh.length > 0 ? fresh : known;
+  const scored = pool
     .map((id) => {
       const p = progress.get(id);
       const total = (p?.correct_count ?? 0) + (p?.incorrect_count ?? 0);
       const ratio = total > 0 ? (p!.correct_count / total) : 0;
       const last = p?.last_reviewed ?? reviews.get(id)?.last_reviewed_at ?? null;
       const lastMs = last ? new Date(last).getTime() : Number.NEGATIVE_INFINITY;
-      return { id, ratio, lastMs, word: words.get(id)! };
+      const rv = reviews.get(id);
+      return { id, ratio, lastMs, easy: rv?.easy_count ?? 0, ease: rv?.ease_factor ?? 2.5, word: words.get(id)! };
     });
   if (scored.length === 0) return null;
+  // Les réponses en saisie libre alimentent word_reviews (pas user_progress) : on classe d'abord sur ce signal
+  // (moins de « Facile », puis facilité SM-2 la plus basse = réponses difficiles ou fausses), puis sur l'historique.
   scored.sort((a, b) => {
+    if (a.easy !== b.easy) return a.easy - b.easy;
+    if (a.ease !== b.ease) return a.ease - b.ease;
     if (a.ratio !== b.ratio) return a.ratio - b.ratio;
     if (a.lastMs !== b.lastMs) return a.lastMs < b.lastMs ? -1 : 1;
     return byDisplayOrder(a.word, b.word);
@@ -56,6 +73,8 @@ export function selectPersonalWord(input: {
   reviews: ReviewRow[];
   progress: ProgressRow[];
   reservoirSize: unknown;
+  /** Ids des mots montrés au cours des derniers jours (hors aujourd'hui). */
+  recentWordIds?: string[];
 }): Selection {
   const reservoirSize = normalizeReservoirSize(input.reservoirSize);
   const words = new Map(input.words.map((w) => [w.id, w] as [string, WordRow]));
@@ -73,7 +92,7 @@ export function selectPersonalWord(input: {
     if (next) return { kind: 'new', wordId: next.id, activeCount: activeIds.length, reservoirSize };
   }
 
-  const worst = leastAssimilated(activeIds, words, progress, reviews);
+  const worst = leastAssimilated(activeIds, words, progress, reviews, new Set(input.recentWordIds ?? []));
   if (worst) return { kind: 'reservoir', wordId: worst, activeCount: activeIds.length, reservoirSize };
 
   return { kind: 'none', wordId: null, activeCount: activeIds.length, reservoirSize };
@@ -117,19 +136,21 @@ export async function resolvePersonalWord(supabase: any, userId: string, todayPa
 
   if (!wordId) {
     // 2. Charger les données de l'utilisateur et choisir
-    const [wordsRes, reviewsRes, progressRes, settingsRes] = await Promise.all([
+    const [wordsRes, reviewsRes, progressRes, settingsRes, recentRes] = await Promise.all([
       supabase.from('words').select('id, display_order'),
-      supabase.from('word_reviews').select('word_id, status, last_reviewed_at').eq('user_id', userId),
+      supabase.from('word_reviews').select('word_id, status, last_reviewed_at, easy_count, ease_factor').eq('user_id', userId),
       supabase.from('user_progress').select('word_id, seen, correct_count, incorrect_count, last_reviewed').eq('user_id', userId),
       supabase.from('user_settings').select('reservoir_size').eq('user_id', userId).maybeSingle(),
+      supabase.from('user_daily_word').select('word_id').eq('user_id', userId).lt('word_date', todayParis).order('word_date', { ascending: false }).limit(ROTATION_DAYS),
     ]);
-    for (const r of [wordsRes, reviewsRes, progressRes, settingsRes]) if (r.error) throw r.error;
+    for (const r of [wordsRes, reviewsRes, progressRes, settingsRes, recentRes]) if (r.error) throw r.error;
 
     const sel = selectPersonalWord({
       words: wordsRes.data ?? [],
       reviews: reviewsRes.data ?? [],
       progress: progressRes.data ?? [],
       reservoirSize: settingsRes.data?.reservoir_size,
+      recentWordIds: (recentRes.data ?? []).map((r: { word_id: string }) => r.word_id),
     });
     if (!sel.wordId) return null; // rien à proposer -> l'appelant retombe sur le mot global
     kind = sel.kind;

@@ -9,14 +9,22 @@ function makeClient(tables: Record<string, Row[]>, opts: { failTable?: string } 
   const upserts: Row[] = [];
   function from(table: string) {
     const filters: Array<[string, unknown]> = [];
+    const lts: Array<[string, any]> = [];
+    let ord: [string, boolean] | null = null;
+    let lim: number | null = null;
     const run = () => {
       if (opts.failTable === table) return { data: null, error: { message: 'boom ' + table } };
-      const rows = (tables[table] ?? []).filter((r) => filters.every(([k, v]) => r[k] === v));
+      let rows = (tables[table] ?? []).filter((r) => filters.every(([k, v]) => r[k] === v) && lts.every(([k, v]) => r[k] < v));
+      if (ord) { const [k, asc] = ord; rows = [...rows].sort((a, c) => (a[k] < c[k] ? -1 : a[k] > c[k] ? 1 : 0) * (asc ? 1 : -1)); }
+      if (lim !== null) rows = rows.slice(0, lim);
       return { data: rows, error: null };
     };
     const q: any = {
       select: () => q,
       eq: (k: string, v: unknown) => { filters.push([k, v]); return q; },
+      lt: (k: string, v: any) => { lts.push([k, v]); return q; },
+      order: (k: string, o: { ascending: boolean }) => { ord = [k, o.ascending]; return q; },
+      limit: (n: number) => { lim = n; return q; },
       maybeSingle: () => { const r = run(); return Promise.resolve(r.error ? r : { data: r.data![0] ?? null, error: null }); },
       single: () => { const r = run(); return Promise.resolve(r.error ? r : r.data![0] ? { data: r.data![0], error: null } : { data: null, error: { message: 'no row' } }); },
       then: (res: any, rej: any) => Promise.resolve(run()).then(res, rej),
@@ -126,5 +134,74 @@ describe('resolvePersonalWord', () => {
     const tables: Record<string, Row[]> = { words: W(2), word_reviews: [], user_progress: [], user_settings: [], user_daily_word: [] };
     const { client } = makeClient(tables, { failTable: 'word_reviews' });
     await expect(resolvePersonalWord(client, 'u1', '2026-10-12')).rejects.toBeTruthy();
+  });
+});
+
+describe('resolvePersonalWord — rotation sur 5 jours (réservoir plein)', () => {
+  const full = (extra: Record<string, Row[]> = {}): Record<string, Row[]> => ({
+    words: W(6),
+    word_reviews: [1, 2, 3].map((n) => ({ user_id: 'u1', word_id: 'w' + n, status: 'active', last_reviewed_at: null, easy_count: 0, ease_factor: 2.5 })),
+    user_progress: [],
+    user_settings: [{ user_id: 'u1', reservoir_size: 3 }],
+    user_daily_word: [],
+    ...extra,
+  });
+
+  it('un mot montré hier ne redevient pas le mot du jour tant que d\'autres mots actifs existent', async () => {
+    const tables = full({ user_daily_word: [{ user_id: 'u1', word_date: '2026-11-09', word_id: 'w1' }] });
+    const { client } = makeClient(tables);
+    const r = await resolvePersonalWord(client, 'u1', '2026-11-10');
+    expect(r?.kind).toBe('reservoir');
+    expect(r?.word.id).not.toBe('w1');
+  });
+
+  it('plusieurs jours de suite : le mot change chaque jour (3 mots actifs => 3 mots différents)', async () => {
+    const tables = full();
+    const { client } = makeClient(tables);
+    const seen: string[] = [];
+    for (const d of ['2026-11-10', '2026-11-11', '2026-11-12']) {
+      const r = await resolvePersonalWord(client, 'u1', d);
+      seen.push(r!.word.id as string);
+    }
+    expect(new Set(seen).size).toBe(3);
+  });
+
+  it('tous les mots actifs ont été montrés récemment : on reprend le moins assimilé (jamais de blocage)', async () => {
+    const tables = full({ user_daily_word: ['w1', 'w2', 'w3'].map((id, i) => ({ user_id: 'u1', word_date: '2026-11-0' + (6 + i), word_id: id })) });
+    const { client } = makeClient(tables);
+    const r = await resolvePersonalWord(client, 'u1', '2026-11-10');
+    expect(r?.word.id).toBeTruthy();
+    expect(['w1', 'w2', 'w3']).toContain(r?.word.id);
+  });
+
+  it("seuls les 5 derniers jours comptent : un mot montré il y a 6 jours peut revenir", async () => {
+    const days = ['2026-11-09', '2026-11-08', '2026-11-07', '2026-11-06', '2026-11-05'];
+    const tables = full({
+      word_reviews: ['w1', 'w2'].map((id) => ({ user_id: 'u1', word_id: id, status: 'active', last_reviewed_at: null, easy_count: 0, ease_factor: 2.5 })),
+      user_settings: [{ user_id: 'u1', reservoir_size: 2 }],
+      user_daily_word: [
+        ...days.map((d) => ({ user_id: 'u1', word_date: d, word_id: 'wX' })),
+        { user_id: 'u1', word_date: '2026-11-04', word_id: 'w1' }, // 6 jours avant : hors fenêtre
+      ],
+    });
+    const { client } = makeClient(tables);
+    const r = await resolvePersonalWord(client, 'u1', '2026-11-10');
+    expect(r?.word.id).toBe('w1'); // w1 et w2 sont à égalité, w1 gagne (ordre) : preuve que w1 n'est pas écarté
+  });
+
+  it("la ligne d'aujourd'hui ne compte pas dans la rotation (un mot déjà fixé reste fixé)", async () => {
+    const tables = full({ user_daily_word: [{ user_id: 'u1', word_date: '2026-11-10', word_id: 'w2' }] });
+    const { client, upserts } = makeClient(tables);
+    const r = await resolvePersonalWord(client, 'u1', '2026-11-10');
+    expect(r?.kind).toBe('fixed');
+    expect(r?.word.id).toBe('w2');
+    expect(upserts).toHaveLength(0);
+  });
+
+  it("les mots montrés à un AUTRE utilisateur n'influencent pas la rotation", async () => {
+    const tables = full({ user_daily_word: [{ user_id: 'u2', word_date: '2026-11-09', word_id: 'w1' }] });
+    const { client } = makeClient(tables);
+    const r = await resolvePersonalWord(client, 'u1', '2026-11-10');
+    expect(r?.word.id).toBe('w1');
   });
 });
