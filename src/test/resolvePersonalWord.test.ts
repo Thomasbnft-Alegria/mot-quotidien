@@ -23,6 +23,7 @@ function makeClient(tables: Record<string, Row[]>, opts: { failTable?: string } 
       select: () => q,
       eq: (k: string, v: unknown) => { filters.push([k, v]); return q; },
       lt: (k: string, v: any) => { lts.push([k, v]); return q; },
+      lte: (k: string, v: any) => { lts.push([k, v + '\uffff']); return q; },
       order: (k: string, o: { ascending: boolean }) => { ord = [k, o.ascending]; return q; },
       limit: (n: number) => { lim = n; return q; },
       maybeSingle: () => { const r = run(); return Promise.resolve(r.error ? r : { data: r.data![0] ?? null, error: null }); },
@@ -186,7 +187,10 @@ describe('resolvePersonalWord — rotation sur 5 jours (réservoir plein)', () =
     });
     const { client } = makeClient(tables);
     const r = await resolvePersonalWord(client, 'u1', '2026-11-10');
-    expect(r?.word.id).toBe('w1'); // w1 et w2 sont à égalité, w1 gagne (ordre) : preuve que w1 n'est pas écarté
+    // Fenêtre = min(5, actifs-1) = 1 ici : seul wX (hors liste active) est récent. w1 (montré il y a 6 jours) et w2 (jamais montré)
+    // sont à égalité de classement : le jamais montré (w2) passe avant le montré il y a longtemps (w1), mais w1 n'est pas écarté.
+    expect(['w1', 'w2']).toContain(r?.word.id);
+    expect(r?.word.id).toBe('w2');
   });
 
   it("la ligne d'aujourd'hui ne compte pas dans la rotation (un mot déjà fixé reste fixé)", async () => {
@@ -203,5 +207,35 @@ describe('resolvePersonalWord — rotation sur 5 jours (réservoir plein)', () =
     const { client } = makeClient(tables);
     const r = await resolvePersonalWord(client, 'u1', '2026-11-10');
     expect(r?.word.id).toBe('w1');
+  });
+});
+
+describe("resolvePersonalWord — la ligne d'aujourd'hui n'entre pas dans l'historique de rotation", () => {
+  it("un mot choisi aujourd'hui (jour en cours) n'est pas traité comme « montré récemment » pour le calcul du jour", async () => {
+    // Cas précis : aujourd'hui n'a pas encore de mot fixé ; une ligne datée d'AUJOURD'HUI ne peut exister que par erreur.
+    // Elle ne doit pas écarter w1 (on la lit avec word_date < aujourd'hui).
+    const tables: Record<string, Row[]> = {
+      words: W(3),
+      word_reviews: [1, 2].map((n) => ({ user_id: 'u1', word_id: 'w' + n, status: 'active', last_reviewed_at: null, easy_count: 0, ease_factor: 2.5 })),
+      user_progress: [], user_settings: [{ user_id: 'u1', reservoir_size: 2 }],
+      user_daily_word: [{ user_id: 'u1', word_date: '2026-11-10', word_id: 'w1' }],
+    };
+    const { client } = makeClient(tables);
+    // la ligne du jour existe => le mot est « fixé » : preuve que la lecture « avant aujourd'hui » ne la confond pas avec l'historique
+    const r = await resolvePersonalWord(client, 'u1', '2026-11-10');
+    expect(r?.kind).toBe('fixed');
+    expect(r?.word.id).toBe('w1');
+  });
+
+  it("l'historique lu exclut strictement aujourd'hui : demain, le mot d'aujourd'hui compte comme « montré hier »", async () => {
+    const tables: Record<string, Row[]> = {
+      words: W(3),
+      word_reviews: [1, 2, 3].map((n) => ({ user_id: 'u1', word_id: 'w' + n, status: 'active', last_reviewed_at: null, easy_count: 0, ease_factor: 2.5 })),
+      user_progress: [], user_settings: [{ user_id: 'u1', reservoir_size: 3 }], user_daily_word: [],
+    };
+    const { client } = makeClient(tables);
+    const d1 = await resolvePersonalWord(client, 'u1', '2026-11-10');
+    const d2 = await resolvePersonalWord(client, 'u1', '2026-11-11');
+    expect(d2?.word.id).not.toBe(d1?.word.id);
   });
 });

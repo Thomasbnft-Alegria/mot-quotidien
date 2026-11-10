@@ -9,6 +9,8 @@ export interface ReviewRow {
 }
 /** Nombre de jours pendant lesquels un mot déjà montré ne peut pas redevenir le mot du jour (réservoir plein). */
 export const ROTATION_DAYS = 5;
+/** Nombre de jours d'historique lus pour départager les mots à égalité (le plus anciennement montré d'abord). */
+export const HISTORY_LIMIT = 60;
 export interface ProgressRow {
   word_id: string;
   seen: boolean;
@@ -39,12 +41,17 @@ function leastAssimilated(
   words: Map<string, WordRow>,
   progress: Map<string, ProgressRow>,
   reviews: Map<string, ReviewRow>,
-  recentIds: Set<string>,
+  history: string[],
 ): string | null {
   const known = activeIds.filter((id) => words.has(id));
-  // Rotation : on écarte les mots montrés récemment, sauf s'il n'en reste aucun autre
+  // Rotation : on écarte les mots montrés dans la fenêtre récente. La fenêtre reste STRICTEMENT plus petite que le
+  // nombre de mots actifs, sinon (peu de mots) on retomberait toujours sur le même mot.
+  const windowSize = Math.max(0, Math.min(ROTATION_DAYS, known.length - 1));
+  const recentIds = new Set(history.slice(0, windowSize));
   const fresh = known.filter((id) => !recentIds.has(id));
   const pool = fresh.length > 0 ? fresh : known;
+  // Ancienneté d'affichage : 0 = montré le plus récemment ; jamais montré = Infinity (passe en premier)
+  const shownAt = (id: string) => { const i = history.indexOf(id); return i < 0 ? Number.POSITIVE_INFINITY : i; };
   const scored = pool
     .map((id) => {
       const p = progress.get(id);
@@ -53,7 +60,7 @@ function leastAssimilated(
       const last = p?.last_reviewed ?? reviews.get(id)?.last_reviewed_at ?? null;
       const lastMs = last ? new Date(last).getTime() : Number.NEGATIVE_INFINITY;
       const rv = reviews.get(id);
-      return { id, ratio, lastMs, easy: rv?.easy_count ?? 0, ease: rv?.ease_factor ?? 2.5, word: words.get(id)! };
+      return { id, ratio, lastMs, shown: shownAt(id), easy: rv?.easy_count ?? 0, ease: rv?.ease_factor ?? 2.5, word: words.get(id)! };
     });
   if (scored.length === 0) return null;
   // Les réponses en saisie libre alimentent word_reviews (pas user_progress) : on classe d'abord sur ce signal
@@ -63,6 +70,8 @@ function leastAssimilated(
     if (a.ease !== b.ease) return a.ease - b.ease;
     if (a.ratio !== b.ratio) return a.ratio - b.ratio;
     if (a.lastMs !== b.lastMs) return a.lastMs < b.lastMs ? -1 : 1;
+    // À égalité de tout le reste : le mot montré le plus anciennement (ou jamais) d'abord, pour que TOUS les mots tournent
+    if (a.shown !== b.shown) return a.shown > b.shown ? -1 : 1;
     return byDisplayOrder(a.word, b.word);
   });
   return scored[0].id;
@@ -73,7 +82,7 @@ export function selectPersonalWord(input: {
   reviews: ReviewRow[];
   progress: ProgressRow[];
   reservoirSize: unknown;
-  /** Ids des mots montrés au cours des derniers jours (hors aujourd'hui). */
+  /** Historique des mots du jour montrés (hors aujourd'hui), du plus récent au plus ancien : un id par jour. */
   recentWordIds?: string[];
 }): Selection {
   const reservoirSize = normalizeReservoirSize(input.reservoirSize);
@@ -92,7 +101,7 @@ export function selectPersonalWord(input: {
     if (next) return { kind: 'new', wordId: next.id, activeCount: activeIds.length, reservoirSize };
   }
 
-  const worst = leastAssimilated(activeIds, words, progress, reviews, new Set(input.recentWordIds ?? []));
+  const worst = leastAssimilated(activeIds, words, progress, reviews, input.recentWordIds ?? []);
   if (worst) return { kind: 'reservoir', wordId: worst, activeCount: activeIds.length, reservoirSize };
 
   return { kind: 'none', wordId: null, activeCount: activeIds.length, reservoirSize };
@@ -141,7 +150,7 @@ export async function resolvePersonalWord(supabase: any, userId: string, todayPa
       supabase.from('word_reviews').select('word_id, status, last_reviewed_at, easy_count, ease_factor').eq('user_id', userId),
       supabase.from('user_progress').select('word_id, seen, correct_count, incorrect_count, last_reviewed').eq('user_id', userId),
       supabase.from('user_settings').select('reservoir_size').eq('user_id', userId).maybeSingle(),
-      supabase.from('user_daily_word').select('word_id').eq('user_id', userId).lt('word_date', todayParis).order('word_date', { ascending: false }).limit(ROTATION_DAYS),
+      supabase.from('user_daily_word').select('word_id').eq('user_id', userId).lt('word_date', todayParis).order('word_date', { ascending: false }).limit(HISTORY_LIMIT),
     ]);
     for (const r of [wordsRes, reviewsRes, progressRes, settingsRes, recentRes]) if (r.error) throw r.error;
 

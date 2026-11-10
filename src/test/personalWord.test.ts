@@ -178,9 +178,10 @@ describe('selectPersonalWord — rotation', () => {
     const s = selectPersonalWord({ words: words(4), reviews: [rev('w1'), rev('w2'), rev('w3')], progress: [], reservoirSize: 3, recentWordIds: ['w1', 'w2'] });
     expect(s.wordId).toBe('w3');
   });
-  it('tout est récent : repli sur tous les mots actifs', () => {
+  it('tout est récent : repli sur tous les mots actifs, le montré le plus anciennement d\'abord (jamais deux jours de suite le même)', () => {
+    // historique du plus récent au plus ancien : w1 montré hier, w2 avant-hier => w2 est le plus ancien
     const s = selectPersonalWord({ words: words(4), reviews: [rev('w1'), rev('w2')], progress: [], reservoirSize: 2, recentWordIds: ['w1', 'w2'] });
-    expect(s.wordId).toBe('w1');
+    expect(s.wordId).toBe('w2');
   });
   it('la rotation ne concerne pas les mots neufs (réservoir pas plein)', () => {
     const s = selectPersonalWord({ words: words(4), reviews: [rev('w1')], progress: [], reservoirSize: 20, recentWordIds: ['w2'] });
