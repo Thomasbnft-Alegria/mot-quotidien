@@ -33,6 +33,8 @@ export default function DailyWord() {
   const [hasSeenToday, setHasSeenToday] = useState(false);
   const [showContent, setShowContent] = useState(false);
   const [srsSessionDone, setSrsSessionDone] = useState(false);
+  // Nombre de mots réellement révisés dans la session (un mot ignoré n'est pas une révision)
+  const [reviewedCount, setReviewedCount] = useState(0);
 
   // Once everything loaded, always show the word of the day first
   useEffect(() => {
@@ -88,8 +90,13 @@ export default function DailyWord() {
   const handleIgnoreToday = async () => {
     if (!todayWord || !confirmIgnore(todayWord.word)) return;
     const ok = await ignoreWord(todayWord.id);
-    if (ok) toast.success('Ce mot ne te sera plus présenté.');
-    else toast.error("Impossible d'enregistrer ce choix. Réessaie.");
+    if (ok) {
+      toast.success('Ce mot ne te sera plus présenté.');
+      // Ouvrir l'app et traiter le mot du jour compte pour la série, même sans lancer de session de révision
+      void recordActivity();
+    } else {
+      toast.error("Impossible d'enregistrer ce choix. Réessaie.");
+    }
   };
 
   const startReview = () => {
@@ -97,6 +104,7 @@ export default function DailyWord() {
     if (due.length > 0) {
       setReviewQueue(due);
       setReviewIndex(0);
+      setReviewedCount(0);
       setSrsSessionDone(false);
       setPhase('srs');
     } else {
@@ -107,6 +115,7 @@ export default function DailyWord() {
   const handleSRSResult = async (quality: SRSQuality, correct: boolean) => {
     const currentWord = reviewQueue[reviewIndex];
     const outcome = await submitReview(currentWord.id, quality, correct);
+    setReviewedCount((n) => n + 1);
 
     // Messages de progression (maîtrise du mot) ou erreur d'enregistrement
     const msg = outcomeMessage(outcome, currentWord.word);
@@ -212,7 +221,7 @@ export default function DailyWord() {
               animate={{ opacity: 1, scale: 1 }}
               className="mb-4 inline-flex items-center gap-2 bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 text-sm font-medium px-3 py-1.5 rounded-full"
             >
-              ✓ Session complète — {reviewQueue.length} révision{reviewQueue.length > 1 ? 's' : ''} faite{reviewQueue.length > 1 ? 's' : ''}
+              ✓ Session complète — {reviewedCount} révision{reviewedCount > 1 ? 's' : ''} faite{reviewedCount > 1 ? 's' : ''}
             </motion.div>
           )}
           <div className="flex items-center justify-center gap-2 text-primary mb-2">

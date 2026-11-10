@@ -140,3 +140,52 @@ describe('selectPersonalWord', () => {
     expect(s.reservoirSize).toBe(20);
   });
 });
+
+describe('selectPersonalWord — classement alimenté par les révisions (saisie libre)', () => {
+  const rev = (id: string, easy: number, ease: number): ReviewRow => ({ word_id: id, status: 'active', last_reviewed_at: null, easy_count: easy, ease_factor: ease });
+
+  it('le mot avec le moins de « Facile » passe en premier', () => {
+    const s = selectPersonalWord({ words: words(4), reviews: [rev('w1', 2, 2.5), rev('w2', 0, 2.5), rev('w3', 1, 2.5)], progress: [], reservoirSize: 3 });
+    expect(s.wordId).toBe('w2');
+  });
+
+  it('à « Facile » égal, la facilité SM-2 la plus basse (réponses difficiles ou fausses) passe en premier', () => {
+    const s = selectPersonalWord({ words: words(4), reviews: [rev('w1', 0, 2.5), rev('w2', 0, 1.7), rev('w3', 0, 2.1)], progress: [], reservoirSize: 3 });
+    expect(s.wordId).toBe('w2');
+  });
+
+  it('le classement bouge : après une mauvaise réponse (facilité plus basse) un autre mot devient le moins assimilé', () => {
+    const before = selectPersonalWord({ words: words(4), reviews: [rev('w1', 0, 1.5), rev('w2', 0, 2.5), rev('w3', 0, 2.5)], progress: [], reservoirSize: 3 });
+    const after = selectPersonalWord({ words: words(4), reviews: [rev('w1', 0, 2.5), rev('w2', 0, 1.3), rev('w3', 0, 2.5)], progress: [], reservoirSize: 3 });
+    expect(before.wordId).toBe('w1');
+    expect(after.wordId).toBe('w2');
+  });
+
+  it('lignes sans ces colonnes (anciennes données) : comportement précédent conservé (ratio)', () => {
+    const s = selectPersonalWord({
+      words: words(4),
+      reviews: [{ word_id: 'w1', status: 'active', last_reviewed_at: null }, { word_id: 'w2', status: 'active', last_reviewed_at: null }],
+      progress: [prog('w1', 3, 1), prog('w2', 1, 3)],
+      reservoirSize: 2,
+    });
+    expect(s.wordId).toBe('w2');
+  });
+});
+
+describe('selectPersonalWord — rotation', () => {
+  const rev = (id: string): ReviewRow => ({ word_id: id, status: 'active', last_reviewed_at: null, easy_count: 0, ease_factor: 2.5 });
+  it('écarte les mots récents', () => {
+    const s = selectPersonalWord({ words: words(4), reviews: [rev('w1'), rev('w2'), rev('w3')], progress: [], reservoirSize: 3, recentWordIds: ['w1', 'w2'] });
+    expect(s.wordId).toBe('w3');
+  });
+  it('tout est récent : repli sur tous les mots actifs, le montré le plus anciennement d\'abord (jamais deux jours de suite le même)', () => {
+    // historique du plus récent au plus ancien : w1 montré hier, w2 avant-hier => w2 est le plus ancien
+    const s = selectPersonalWord({ words: words(4), reviews: [rev('w1'), rev('w2')], progress: [], reservoirSize: 2, recentWordIds: ['w1', 'w2'] });
+    expect(s.wordId).toBe('w2');
+  });
+  it('la rotation ne concerne pas les mots neufs (réservoir pas plein)', () => {
+    const s = selectPersonalWord({ words: words(4), reviews: [rev('w1')], progress: [], reservoirSize: 20, recentWordIds: ['w2'] });
+    expect(s.kind).toBe('new');
+    expect(s.wordId).toBe('w2');
+  });
+});

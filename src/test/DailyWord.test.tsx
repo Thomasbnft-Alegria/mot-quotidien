@@ -110,6 +110,21 @@ describe('DailyWord — ne plus me présenter ce mot (mot du jour)', () => {
     expect(m.toast.success).toHaveBeenCalledWith('Ce mot ne te sera plus présenté.');
   });
 
+  it("ignorer le mot du jour compte la journée pour la série (même sans session de révision)", async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    setup({ seen: false });
+    fireEvent.click(await screen.findByTestId('ignore-today'));
+    await waitFor(() => expect(m.progress.recordActivity).toHaveBeenCalledTimes(1));
+  });
+
+  it("ignorer le mot du jour : échec ou refus => la série n'est PAS comptée", async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    setup({ seen: false, ignoreOk: false });
+    fireEvent.click(await screen.findByTestId('ignore-today'));
+    await waitFor(() => expect(m.toast.error).toHaveBeenCalled());
+    expect(m.progress.recordActivity).not.toHaveBeenCalled();
+  });
+
   it("sans confirmation : rien n'est enregistré", async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     setup({ seen: false });
@@ -157,5 +172,34 @@ describe('DailyWord — ne plus me présenter ce mot (pendant une session)', () 
     await waitFor(() => expect(m.toast.error).toHaveBeenCalled());
     expect(m.progress.recordActivity).not.toHaveBeenCalled();
     expect(screen.getByTestId('ignore-word')).toBeTruthy();
+  });
+});
+
+describe('DailyWord — compteur de fin de session', () => {
+  it("un mot ignoré n'est pas compté comme révision : 2 mots dont 1 ignoré, 1 répondu => « 1 révision faite »", async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    setup({ seen: true, seenDate: '2026-10-01', due: [W('w2', 'Tanguer'), W('w3', 'Délation')] });
+    fireEvent.click(await screen.findByRole('button', { name: /Réviser/ }));
+    // mot 1 : ignoré
+    fireEvent.change(await screen.findByPlaceholderText('Écris le mot…'), { target: { value: 'Tanguer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }));
+    fireEvent.click(await screen.findByTestId('ignore-word'));
+    // mot 2 : répondu
+    await waitFor(() => expect(m.srs.ignoreWord).toHaveBeenCalledWith('w2'));
+    fireEvent.change(await screen.findByPlaceholderText('Écris le mot…'), { target: { value: 'faux' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Difficile/ }));
+    await waitFor(() => expect(screen.getByText(/Session complète — 1 révision faite/)).toBeTruthy());
+  });
+
+  it('2 mots répondus => « 2 révisions faites »', async () => {
+    setup({ seen: true, seenDate: '2026-10-01', due: [W('w2', 'Tanguer'), W('w3', 'Délation')] });
+    fireEvent.click(await screen.findByRole('button', { name: /Réviser/ }));
+    for (const mot of ['x', 'y']) {
+      fireEvent.change(await screen.findByPlaceholderText('Écris le mot…'), { target: { value: mot } });
+      fireEvent.click(screen.getByRole('button', { name: 'Valider' }));
+      fireEvent.click(await screen.findByRole('button', { name: /Difficile/ }));
+    }
+    await waitFor(() => expect(screen.getByText(/Session complète — 2 révisions faites/)).toBeTruthy());
   });
 });
